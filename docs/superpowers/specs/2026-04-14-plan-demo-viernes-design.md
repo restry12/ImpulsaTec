@@ -59,22 +59,47 @@ Detalles que hacen el proyecto verse profesional y terminado.
 
 ---
 
-## Sección 4 — Cronograma
+## Sección 5 — Vista Visitante / Talento Freelance
+
+Integrada en el Directorio Público existente (`/`). El directorio pasa a ser la vitrina principal de talento para **pasantías y contratación freelance**.
+
+### Cambios en el Directorio Público
+- Toggle en la parte superior: **"Todos" / "Pasantía" / "Freelance"** — filtra el listado por tipo de disponibilidad
+- Cada tarjeta de estudiante muestra un badge visible: `Pasantía`, `Freelance`, o `Ambos`
+- El formulario de contacto animado existente se activa desde el perfil del estudiante y envía **sin requerir login** — campos: nombre, email, mensaje
+
+### Cambios en perfil del estudiante
+- Nuevo campo en dialog "Editar perfil": selector `tipoDisponibilidad` con opciones `Pasantía / Freelance / Ambos`
+- Valor por defecto: `PASANTIA` — no rompe estudiantes existentes
+
+### Backend necesario
+- Nueva columna `tipoDisponibilidad` en modelo `Estudiante` — enum `PASANTIA | FREELANCE | AMBOS`, default `PASANTIA`
+- Migración Prisma para agregar la columna
+- Nuevo endpoint `POST /api/contactos/publico` — **sin JWT** — recibe `{ estudianteId, nombreRemitente, emailRemitente, mensaje }` — guarda en tabla `Contacto` existente
+- `GET /api/estudiantes` acepta nuevo filtro `?tipoDisponibilidad=`
+- `PATCH /api/estudiantes/me` acepta `tipoDisponibilidad` en el body
+
+---
+
+## Sección 6 — Cronograma
 
 | Día | Foco | Entregable |
 |---|---|---|
 | **Martes 15** | Bugs críticos | 5 bugs corregidos, formulario de contacto funcional |
-| **Miércoles 16** | Features a medias + pulido | "Mis Contactos", tab Empresas, toasts, VITE_API_URL, skeletons |
-| **Jueves 17** | Buffer + ensayo completo | Demo de los 3 roles de principio a fin sin errores |
+| **Miércoles 16 AM** | Features a medias | "Mis Contactos", toasts, VITE_API_URL, feedback contacto empresa |
+| **Miércoles 16 PM** | Vista freelance + pulido | Tab toggle Pasantía/Freelance, contacto sin login, skeletons, stats admin |
+| **Jueves 17** | Buffer + ensayo completo | Demo de los 4 roles de principio a fin sin errores |
 | **Viernes 18** | Presentación | Solo fixes críticos si aparece algo roto |
+
+> Si el miércoles se acumula: skeletons y navegación móvil son los primeros en sacrificar.
 
 ---
 
 ## Flujo de demo sugerido
 
-1. **Visitante** — abrir Directorio Público, buscar estudiante, buscar empresa
-2. **Estudiante** — login, ver feed, publicar post, buscar oferta, postular, ver "Mis Postulaciones", agregar habilidad
-3. **Empresa** — login, buscar talento, contactar estudiante, crear oferta, ver postulantes
+1. **Visitante externo** — abrir Directorio Público, filtrar por "Freelance", ver perfil de estudiante, enviar contacto sin login
+2. **Estudiante** — login, ver feed, publicar post, buscar oferta, postular, ver "Mis Postulaciones", agregar habilidad, editar tipo de disponibilidad
+3. **Empresa** — login, buscar talento, contactar estudiante, crear oferta
 4. **Admin** — login, validar habilidades de estudiante, aceptar postulación, ver empresas
 
 ---
