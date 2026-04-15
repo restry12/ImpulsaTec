@@ -1,5 +1,25 @@
 # Planes y specs generados por Superpowers
 docs/superpowers/
 
+# Claude Code interno
+.claude/
+
 # macOS
 .DS_Store
+docs/.DS_Store
+talentofront/src/app/.DS_Store
+talentofront/src/.DS_Store
+
+# Dependencias
+node_modules/
+talentofront/node_modules/
+
+# Build
+talentofront/dist/
+
+# Variables de entorno (por si acaso)
+.env
+.env.local
+server/.env
+talentofront/.env
+talentofront/.env.local
