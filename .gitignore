@@ -1,0 +1,5 @@
+# Planes y specs generados por Superpowers
+docs/superpowers/
+
+# macOS
+.DS_Store

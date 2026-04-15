@@ -4,8 +4,9 @@ import {
   Bell, Search, Home, Users, Briefcase, MessageSquare,
   Plus, ThumbsUp, MessageCircle, Share2, Download, Sparkles,
   LogOut, User, Check, Loader2, ClipboardList, Award, Pencil,
-  Building2, CheckCircle2, X
+  Building2, CheckCircle2, X, Mail
 } from "lucide-react";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -56,8 +57,17 @@ type PerfilEstudiante = {
   descripcion: string | null
   fotoUrl: string | null
   disponible: boolean
+  tipoDisponibilidad: "PASANTIA" | "FREELANCE" | "AMBOS"
   habilidades: { id: number; nombre: string; validada: boolean }[]
   certificaciones: { id: number; nombre: string; institucion: string | null; validada: boolean }[]
+}
+type ContactoRecibido = {
+  id: number
+  creadoEn: string
+  mensaje: string | null
+  nombreRemitente: string | null
+  emailRemitente: string | null
+  empresa: { nombre: string; logoUrl: string | null } | null
 }
 type Postulacion = {
   id: number
@@ -79,11 +89,20 @@ export function StudentDashboard() {
   const navegar = useNavigate()
   const [perfil, setPerfil] = useState<PerfilEstudiante | null>(null)
   const [misPostulaciones, setMisPostulaciones] = useState<Postulacion[]>([])
+  const [misContactos, setMisContactos] = useState<ContactoRecibido[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   // Posts del feed (cargados desde la API)
   const [posts, setPosts] = useState<PostFeed[]>([])
   const [cargandoPosts, setCargandoPosts] = useState(true)
-  const [likesActivos, setLikesActivos] = useState<Set<number>>(new Set())
+  const [likesActivos, setLikesActivos] = useState<Set<number>>(() => {
+    const clave = `impulsa_likes_${sesion?.id}`
+    try {
+      const guardado = localStorage.getItem(clave)
+      return guardado ? new Set<number>(JSON.parse(guardado)) : new Set<number>()
+    } catch {
+      return new Set<number>()
+    }
+  })
   // Estado de postulaciones enviadas (inicializado con las ya existentes en BD)
   const [postuladas, setPostuladas] = useState<Set<number>>(new Set())
   const [postulando, setPostulando] = useState<number | null>(null)
@@ -95,6 +114,7 @@ export function StudentDashboard() {
   const [mostrarEditarPerfil, setMostrarEditarPerfil] = useState(false)
   const [editDesc, setEditDesc] = useState("")
   const [editFoto, setEditFoto] = useState("")
+  const [editTipoDisponibilidad, setEditTipoDisponibilidad] = useState<"PASANTIA" | "FREELANCE" | "AMBOS">("PASANTIA")
   const [guardandoPerfil, setGuardandoPerfil] = useState(false)
   // Agregar habilidad o certificación
   const [tipoAgregar, setTipoAgregar] = useState<"habilidad" | "certificacion" | null>(null)
@@ -153,6 +173,12 @@ export function StudentDashboard() {
       .then(datos => setEmpresas(datos))
       .catch(() => {})
 
+    // Carga los contactos recibidos por el estudiante
+    fetch(`${API_URL}/api/contactos/me`, { headers })
+      .then(res => res.json())
+      .then((datos: ContactoRecibido[]) => setMisContactos(datos))
+      .catch(() => {})
+
     // Carga los posts del feed
     fetch(`${API_URL}/api/posts`)
       .then(res => res.json())
@@ -197,15 +223,11 @@ export function StudentDashboard() {
       } else {
         siguiente.add(postId)
       }
+      // Persiste en localStorage
+      const clave = `impulsa_likes_${sesion?.id}`
+      localStorage.setItem(clave, JSON.stringify([...siguiente]))
       return siguiente
     })
-    setPosts(prev =>
-      prev.map(p =>
-        p.id === postId
-          ? { ...p, likes: p.likes + (likesActivos.has(postId) ? -1 : 1) }
-          : p
-      )
-    )
   }
 
   const compartirPost = async (post: PostFeed) => {
@@ -251,9 +273,11 @@ export function StudentDashboard() {
           setMisPostulaciones(prev => [postulacionEnriquecida, ...prev])
         }
         setPostuladas(prev => new Set(prev).add(ofertaId))
+        toast.success("¡Postulación enviada!")
       } else if (res.status === 409) {
         // Ya postulada desde otra sesión
         setPostuladas(prev => new Set(prev).add(ofertaId))
+        toast.info("Ya estabas postulado a esta oferta")
       }
     } catch {
       // Error de red — igual marcamos para UX optimista
@@ -296,6 +320,18 @@ export function StudentDashboard() {
 
   const agregarItem = async () => {
     if (!sesion || !nuevoNombre.trim() || !tipoAgregar) return
+
+    // Bloquear duplicados de habilidades
+    if (tipoAgregar === "habilidad" && perfil) {
+      const duplicado = perfil.habilidades.some(
+        h => h.nombre.toLowerCase() === nuevoNombre.trim().toLowerCase()
+      )
+      if (duplicado) {
+        toast.error("Ya tienes esta habilidad registrada")
+        return
+      }
+    }
+
     setGuardandoItem(true)
 
     const url = tipoAgregar === "habilidad"
@@ -328,6 +364,7 @@ export function StudentDashboard() {
           }
         })
         cerrarDialogoAgregar()
+        toast.success(tipoAgregar === "habilidad" ? "Habilidad agregada" : "Certificación agregada")
       }
     } catch {
       // Error de red
@@ -356,6 +393,7 @@ export function StudentDashboard() {
             return { ...prev, certificaciones: prev.certificaciones.filter(c => c.id !== id) }
           }
         })
+        toast.success(tipo === "habilidad" ? "Habilidad eliminada" : "Certificación eliminada")
       }
     } catch {
       // Error de red
@@ -365,6 +403,7 @@ export function StudentDashboard() {
   const abrirEditarPerfil = () => {
     setEditDesc(perfil?.descripcion ?? "")
     setEditFoto(perfil?.fotoUrl ?? "")
+    setEditTipoDisponibilidad(perfil?.tipoDisponibilidad ?? "PASANTIA")
     setMostrarEditarPerfil(true)
   }
 
@@ -375,7 +414,7 @@ export function StudentDashboard() {
       const res = await fetch(`${API_URL}/api/estudiantes/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sesion.token}` },
-        body: JSON.stringify({ descripcion: editDesc, fotoUrl: editFoto }),
+        body: JSON.stringify({ descripcion: editDesc, fotoUrl: editFoto, tipoDisponibilidad: editTipoDisponibilidad }),
       })
       if (res.ok) {
         const actualizado = await res.json()
@@ -1016,6 +1055,47 @@ export function StudentDashboard() {
                 </CardContent>
               </Card>
             </motion.div>
+            {/* Card: Mis Contactos */}
+            <motion.div
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.35 }}
+            >
+              <Card className="border border-gray-100 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                      <Mail className="w-4 h-4 text-[#F97316]" />
+                      Mis Contactos
+                    </h3>
+                    {misContactos.length > 0 && (
+                      <span className="text-xs bg-[#F97316] text-white px-2 py-0.5 rounded-full font-semibold">
+                        {misContactos.length}
+                      </span>
+                    )}
+                  </div>
+                  {misContactos.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">Aún no has recibido contactos</p>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {misContactos.slice(0, 5).map(c => (
+                        <div key={c.id} className="text-xs p-2.5 bg-orange-50 rounded-xl border border-orange-100">
+                          <p className="font-semibold text-gray-800 truncate">
+                            {c.empresa?.nombre ?? c.nombreRemitente ?? "Contacto"}
+                          </p>
+                          {c.mensaje && (
+                            <p className="text-gray-500 mt-0.5 line-clamp-2">{c.mensaje}</p>
+                          )}
+                          <p className="text-gray-400 mt-1">
+                            {new Date(c.creadoEn).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
           </aside>
 
         </div>
@@ -1124,6 +1204,26 @@ export function StudentDashboard() {
                 value={editFoto}
                 onChange={e => setEditFoto(e.target.value)}
               />
+            </div>
+            {/* Tipo de disponibilidad */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Tipo de disponibilidad</Label>
+              <div className="flex gap-2">
+                {(["PASANTIA", "FREELANCE", "AMBOS"] as const).map(tipo => (
+                  <button
+                    key={tipo}
+                    type="button"
+                    onClick={() => setEditTipoDisponibilidad(tipo)}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                      editTipoDisponibilidad === tipo
+                        ? "bg-[#0F172A] text-white border-[#0F172A]"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
+                    {tipo === "PASANTIA" ? "Pasantía" : tipo === "FREELANCE" ? "Freelance" : "Ambos"}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setMostrarEditarPerfil(false)} disabled={guardandoPerfil}>

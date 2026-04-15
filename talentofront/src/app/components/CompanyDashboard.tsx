@@ -5,6 +5,7 @@ import {
   TrendingUp, SlidersHorizontal, X, LogOut, Award, CheckCircle, Mail,
   Plus, Loader2, ToggleLeft, ToggleRight, Users, Pencil
 } from "lucide-react";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -151,6 +152,7 @@ export function CompanyDashboard() {
       })
       if (res.ok) {
         setChatEnviado(true)
+        toast.success("Contacto enviado correctamente")
         setTimeout(() => {
           setMostrarChat(false)
           setChatEnviado(false)

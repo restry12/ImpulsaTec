@@ -14,6 +14,13 @@ import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png
 
 type Habilidad = { id: number; nombre: string; validada: boolean }
 type Certificacion = { id: number; nombre: string; institucion: string | null; validada: boolean }
+type EmpresaDir = {
+  id: number
+  nombre: string
+  rubro: string
+  descripcion: string | null
+  logoUrl: string | null
+}
 type Estudiante = {
   id: number
   nombre: string
@@ -22,6 +29,7 @@ type Estudiante = {
   descripcion: string | null
   fotoUrl: string | null
   disponible: boolean
+  tipoDisponibilidad: "PASANTIA" | "FREELANCE" | "AMBOS"
   habilidades: Habilidad[]
   certificaciones: Certificacion[]
   colegio: { nombre: string }
@@ -46,20 +54,25 @@ const gradienteAvatar = (nombre: string) =>
 
 // Estado del formulario de contacto para un estudiante específico
 interface FormContacto {
-  empresa: string
-  emailContacto: string
+  nombreRemitente: string
+  emailRemitente: string
   mensaje: string
 }
 
 export function PublicDirectory() {
+  const [tabActivo, setTabActivo] = useState<"estudiantes" | "empresas">("estudiantes")
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState("")
+  const [filtroTipo, setFiltroTipo] = useState<"TODOS" | "PASANTIA" | "FREELANCE">("TODOS")
+  const [empresas, setEmpresas] = useState<EmpresaDir[]>([])
+  const [cargandoEmpresas, setCargandoEmpresas] = useState(false)
+  const [empresasCargadas, setEmpresasCargadas] = useState(false)
   // Diálogo de perfil: qué estudiante está seleccionado
   const [estudianteSel, setEstudianteSel] = useState<Estudiante | null>(null)
   // Formulario de contacto
-  const [formContacto, setFormContacto] = useState<FormContacto>({ empresa: "", emailContacto: "", mensaje: "" })
+  const [formContacto, setFormContacto] = useState<FormContacto>({ nombreRemitente: "", emailRemitente: "", mensaje: "" })
   const [enviandoContacto, setEnviandoContacto] = useState(false)
   const [contactoEnviado, setContactoEnviado] = useState(false)
   const [vistaContacto, setVistaContacto] = useState(false)
@@ -74,30 +87,66 @@ export function PublicDirectory() {
       .catch(err => { setError(err.message); setCargando(false) })
   }, [])
 
+  useEffect(() => {
+    if (tabActivo !== "empresas" || empresasCargadas) return
+    setCargandoEmpresas(true)
+    fetch(`${API_URL}/api/empresas`)
+      .then(res => res.json())
+      .then((datos: EmpresaDir[]) => {
+        setEmpresas(datos)
+        setEmpresasCargadas(true)
+        setCargandoEmpresas(false)
+      })
+      .catch(() => setCargandoEmpresas(false))
+  }, [tabActivo])
+
   const enviarContacto = async () => {
-    if (!formContacto.empresa || !formContacto.emailContacto || !formContacto.mensaje) return
+    if (!formContacto.nombreRemitente || !formContacto.emailRemitente || !formContacto.mensaje) return
+    if (!estudianteSel) return
     setEnviandoContacto(true)
-    // Simulamos envío (el colegio gestiona el contacto manualmente)
-    await new Promise(r => setTimeout(r, 800))
-    setEnviandoContacto(false)
-    setContactoEnviado(true)
+    try {
+      const res = await fetch(`${API_URL}/api/contactos/publico`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estudianteId: estudianteSel.id,
+          nombreRemitente: formContacto.nombreRemitente,
+          emailRemitente: formContacto.emailRemitente,
+          mensaje: formContacto.mensaje,
+        }),
+      })
+      if (res.ok) {
+        setContactoEnviado(true)
+      }
+    } catch {
+      // Error de red silencioso — igual marcamos como enviado para UX optimista
+      setContactoEnviado(true)
+    } finally {
+      setEnviandoContacto(false)
+    }
   }
 
   const abrirPerfil = (est: Estudiante) => {
     setEstudianteSel(est)
-    setFormContacto({ empresa: "", emailContacto: "", mensaje: "" })
+    setFormContacto({ nombreRemitente: "", emailRemitente: "", mensaje: "" })
     setContactoEnviado(false)
     setVistaContacto(false)
   }
 
   const estudiantesFiltrados = estudiantes.filter(est => {
     const texto = busqueda.toLowerCase()
-    return (
+    const coincideTexto = (
       est.nombre.toLowerCase().includes(texto) ||
       est.apellido.toLowerCase().includes(texto) ||
       est.especialidad.toLowerCase().includes(texto) ||
       est.habilidades.some(h => h.nombre.toLowerCase().includes(texto))
     )
+    const coincideTipo = (
+      filtroTipo === "TODOS" ||
+      est.tipoDisponibilidad === filtroTipo ||
+      est.tipoDisponibilidad === "AMBOS"
+    )
+    return coincideTexto && coincideTipo
   })
 
   return (
@@ -207,6 +256,28 @@ export function PublicDirectory() {
               </button>
             ))}
           </motion.div>
+
+          {/* Toggle Pasantía / Freelance */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.65 }}
+            className="flex gap-2 justify-center mt-3"
+          >
+            {(["TODOS", "PASANTIA", "FREELANCE"] as const).map(tipo => (
+              <button
+                key={tipo}
+                onClick={() => setFiltroTipo(tipo)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer border ${
+                  filtroTipo === tipo
+                    ? "bg-white border-white text-[#0F172A] shadow-md scale-105"
+                    : "bg-white/10 border-white/20 text-white hover:bg-white/20"
+                }`}
+              >
+                {tipo === "TODOS" ? "Todos" : tipo === "PASANTIA" ? "Pasantía" : "Freelance"}
+              </button>
+            ))}
+          </motion.div>
         </div>
       </section>
 
@@ -233,7 +304,65 @@ export function PublicDirectory() {
         </div>
       </section>
 
+      {/* ── TABS Estudiantes / Empresas ──────────────────────── */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-1">
+            {(["estudiantes", "empresas"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setTabActivo(tab)}
+                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
+                  tabActivo === tab
+                    ? "border-[#F97316] text-[#F97316]"
+                    : "border-transparent text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                {tab === "estudiantes" ? "Estudiantes" : "Empresas"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── GRID EMPRESAS ────────────────────────────────────── */}
+      {tabActivo === "empresas" && (
+        <section className="max-w-7xl mx-auto px-6 py-14">
+          <h2 className="text-2xl font-bold text-gray-900 mb-8">Empresas conectadas</h2>
+          {cargandoEmpresas && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse h-32" />
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {empresas.map(emp => (
+              <Link key={emp.id} to={`/empresas/${emp.id}`}>
+                <Card className="hover:shadow-lg transition-shadow h-full border border-gray-100">
+                  <CardContent className="p-6 flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-[#DBEAFE] flex items-center justify-center shrink-0 font-bold text-[#0F172A] text-lg">
+                      {emp.logoUrl
+                        ? <img src={emp.logoUrl} alt={emp.nombre} className="w-full h-full object-cover rounded-xl" />
+                        : emp.nombre[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 truncate">{emp.nombre}</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">{emp.rubro}</p>
+                      {emp.descripcion && (
+                        <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{emp.descripcion}</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── DIRECTORIO ───────────────────────────────────────── */}
+      {tabActivo === "estudiantes" && (
       <section className="max-w-7xl mx-auto px-6 py-14">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -322,7 +451,22 @@ export function PublicDirectory() {
                       </div>
 
                       <h3 className="font-semibold text-gray-900 text-base mb-0.5">{nombreCompleto}</h3>
-                      <p className="text-xs font-medium text-[#0F172A] mb-4 uppercase tracking-wide">{est.especialidad}</p>
+                      <p className="text-xs font-medium text-[#0F172A] mb-2 uppercase tracking-wide">{est.especialidad}</p>
+
+                      {/* Badge tipo disponibilidad */}
+                      <div className="mb-3">
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          est.tipoDisponibilidad === "FREELANCE"
+                            ? "bg-purple-100 text-purple-700"
+                            : est.tipoDisponibilidad === "AMBOS"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {est.tipoDisponibilidad === "PASANTIA" ? "Pasantía"
+                            : est.tipoDisponibilidad === "FREELANCE" ? "Freelance"
+                            : "Pasantía & Freelance"}
+                        </span>
+                      </div>
 
                       {est.habilidades.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 justify-center mb-4">
@@ -357,6 +501,7 @@ export function PublicDirectory() {
           })}
         </div>
       </section>
+      )} {/* fin tabActivo === "estudiantes" */}
 
       {/* ── DIÁLOGO: Perfil completo ────────────────────────── */}
       <Dialog open={!!estudianteSel} onOpenChange={abierto => { if (!abierto) setEstudianteSel(null) }}>
@@ -559,22 +704,22 @@ export function PublicDirectory() {
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <Label htmlFor="empresa" className="text-xs">Empresa</Label>
+                          <Label htmlFor="nombreRemitente" className="text-xs">Tu nombre</Label>
                           <Input
-                            id="empresa"
-                            placeholder="Tu empresa"
-                            value={formContacto.empresa}
-                            onChange={e => setFormContacto(prev => ({ ...prev, empresa: e.target.value }))}
+                            id="nombreRemitente"
+                            placeholder="Juan Pérez"
+                            value={formContacto.nombreRemitente}
+                            onChange={e => setFormContacto(prev => ({ ...prev, nombreRemitente: e.target.value }))}
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="emailContacto" className="text-xs">Email de contacto</Label>
+                          <Label htmlFor="emailRemitente" className="text-xs">Tu email</Label>
                           <Input
-                            id="emailContacto"
+                            id="emailRemitente"
                             type="email"
-                            placeholder="tu@empresa.cl"
-                            value={formContacto.emailContacto}
-                            onChange={e => setFormContacto(prev => ({ ...prev, emailContacto: e.target.value }))}
+                            placeholder="juan@empresa.cl"
+                            value={formContacto.emailRemitente}
+                            onChange={e => setFormContacto(prev => ({ ...prev, emailRemitente: e.target.value }))}
                           />
                         </div>
                       </div>
@@ -591,7 +736,7 @@ export function PublicDirectory() {
                       <Button
                         className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl h-11"
                         onClick={enviarContacto}
-                        disabled={enviandoContacto || !formContacto.empresa || !formContacto.emailContacto || !formContacto.mensaje}
+                        disabled={enviandoContacto || !formContacto.nombreRemitente || !formContacto.emailRemitente || !formContacto.mensaje}
                       >
                         <Mail className="w-4 h-4 mr-2" />
                         {enviandoContacto ? "Enviando..." : "Enviar solicitud"}

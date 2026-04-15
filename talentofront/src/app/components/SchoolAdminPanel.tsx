@@ -92,13 +92,35 @@ export function SchoolAdminPanel() {
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
+    if (!sesion) return
+
+    // Carga estudiantes (tabla principal del dashboard)
     fetch(`${API_URL}/api/estudiantes`)
       .then(res => res.json())
       .then(datos => { setEstudiantes(datos); setCargando(false) })
       .catch(() => setCargando(false))
+
+    // Carga empresas y postulaciones al inicio para que los stats del dashboard sean reales
+    fetch(`${API_URL}/api/empresas`)
+      .then(res => res.json())
+      .then((datos: EmpresaAdmin[]) => {
+        setEmpresas(datos)
+        setEmpresasCargadas(true)
+      })
+      .catch(() => {})
+
+    fetch(`${API_URL}/api/postulaciones`, {
+      headers: { Authorization: `Bearer ${sesion.token}` },
+    })
+      .then(res => res.json())
+      .then((datos: PostulacionAdmin[]) => {
+        setPostulaciones(datos)
+        setPostulacionesCargadas(true)
+      })
+      .catch(() => {})
   }, [])
 
-  // Carga postulaciones la primera vez que se entra a esa sección
+  // Carga postulaciones si aún no están cuando se entra a esa sección
   useEffect(() => {
     if (seccionActiva !== "Postulaciones" || postulacionesCargadas || !sesion) return
     setCargandoPostulaciones(true)
@@ -114,7 +136,7 @@ export function SchoolAdminPanel() {
       .catch(() => setCargandoPostulaciones(false))
   }, [seccionActiva])
 
-  // Carga empresas la primera vez que se entra a esa sección
+  // Carga empresas si aún no están cuando se entra a esa sección
   useEffect(() => {
     if (seccionActiva !== "Empresas" || empresasCargadas) return
     setCargandoEmpresas(true)
