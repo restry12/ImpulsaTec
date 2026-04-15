@@ -125,12 +125,12 @@ router.delete('/:id', verificarToken, async (req, res) => {
     if (rol !== 'ADMINISTRADOR') {
       if (rol === 'ESTUDIANTE') {
         const estudiante = await prisma.estudiante.findUnique({ where: { usuarioId } })
-        if (post.estudianteId !== estudiante?.id) {
+        if (!estudiante || post.estudianteId !== estudiante.id) {
           return res.status(403).json({ error: 'No autorizado' })
         }
       } else if (rol === 'EMPRESA') {
         const empresa = await prisma.empresa.findUnique({ where: { usuarioId } })
-        if (post.empresaId !== empresa?.id) {
+        if (!empresa || post.empresaId !== empresa.id) {
           return res.status(403).json({ error: 'No autorizado' })
         }
       } else {
@@ -234,22 +234,23 @@ router.post('/:id/comentarios', verificarToken, async (req, res) => {
 // DELETE /api/posts/:id/comentarios/:comentarioId — Autor del comentario o admin puede eliminar
 router.delete('/:id/comentarios/:comentarioId', verificarToken, async (req, res) => {
   const { rol, id: usuarioId } = req.usuario
+  const postId = parseInt(req.params.id)
   const comentarioId = parseInt(req.params.comentarioId)
-  if (isNaN(comentarioId)) return res.status(400).json({ error: 'ID inválido' })
+  if (isNaN(postId) || isNaN(comentarioId)) return res.status(400).json({ error: 'ID inválido' })
 
   try {
-    const comentario = await prisma.comentario.findUnique({ where: { id: comentarioId } })
+    const comentario = await prisma.comentario.findFirst({ where: { id: comentarioId, postId } })
     if (!comentario) return res.status(404).json({ error: 'Comentario no encontrado' })
 
     if (rol !== 'ADMINISTRADOR') {
       if (rol === 'ESTUDIANTE') {
         const estudiante = await prisma.estudiante.findUnique({ where: { usuarioId } })
-        if (comentario.estudianteId !== estudiante?.id) {
+        if (!estudiante || comentario.estudianteId !== estudiante.id) {
           return res.status(403).json({ error: 'No autorizado' })
         }
       } else if (rol === 'EMPRESA') {
         const empresa = await prisma.empresa.findUnique({ where: { usuarioId } })
-        if (comentario.empresaId !== empresa?.id) {
+        if (!empresa || comentario.empresaId !== empresa.id) {
           return res.status(403).json({ error: 'No autorizado' })
         }
       } else {
