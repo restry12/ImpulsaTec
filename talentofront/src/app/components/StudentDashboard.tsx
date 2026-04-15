@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import {
   Bell, Search, Home, Users, Briefcase, MessageSquare,
   Plus, ThumbsUp, MessageCircle, Share2, Download, Sparkles,
   LogOut, User, Check, Loader2, ClipboardList, Award, Pencil,
-  Building2, CheckCircle2, X, Mail
+  Building2, CheckCircle2, X, Mail, Paperclip, ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
@@ -19,10 +19,15 @@ import { Label } from "./ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { useAuth } from "../context/AuthContext";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
+import { subirMedia } from "../../lib/supabase";
+import { Progress } from "./ui/progress";
 
 type PostFeed = {
   id: number
   contenido: string
+  mediaUrl: string | null
+  mediaType: 'IMAGEN' | 'VIDEO' | null
+  autorTipo: 'ESTUDIANTE' | 'EMPRESA' | 'ADMINISTRADOR'
   creadoEn: string
   estudiante: {
     id: number
@@ -30,7 +35,13 @@ type PostFeed = {
     apellido: string
     fotoUrl: string | null
     especialidad: string
-  }
+  } | null
+  empresa: {
+    id: number
+    nombre: string
+    rubro: string
+    logoUrl: string | null
+  } | null
 }
 type Oferta = { id: number; titulo: string; especialidad: string }
 type Empresa = {
@@ -110,6 +121,11 @@ export function StudentDashboard() {
   const [mostrarCrearPost, setMostrarCrearPost] = useState(false)
   const [textoPost, setTextoPost] = useState("")
   const [enviandoPost, setEnviandoPost] = useState(false)
+  // Estado para adjuntar media al post
+  const [archivoMedia, setArchivoMedia] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [subiendoMedia, setSubiendoMedia] = useState(false)
+  const refInputArchivo = useRef<HTMLInputElement>(null)
   // Editar perfil propio
   const [mostrarEditarPerfil, setMostrarEditarPerfil] = useState(false)
   const [editDesc, setEditDesc] = useState("")
@@ -231,12 +247,13 @@ export function StudentDashboard() {
   }
 
   const compartirPost = async (post: PostFeed) => {
-    const autor = `${post.estudiante.nombre} ${post.estudiante.apellido}`
-    if (navigator.share) {
+    const autor = post.autorTipo === 'ESTUDIANTE'
+      ? `${post.estudiante?.nombre} ${post.estudiante?.apellido}`
+      : (post.empresa?.nombre ?? "Empresa")
+    try {
       await navigator.share({ title: autor, text: post.contenido })
-    } else {
+    } catch {
       await navigator.clipboard.writeText(post.contenido)
-      alert("Contenido copiado al portapapeles")
     }
   }
 
@@ -290,25 +307,66 @@ export function StudentDashboard() {
     if (!textoPost.trim() || !sesion) return
     setEnviandoPost(true)
     try {
+      let mediaUrl: string | null = null
+      let mediaType: 'IMAGEN' | 'VIDEO' | null = null
+
+      if (archivoMedia) {
+        const resultado = await subirMedia(
+          archivoMedia,
+          'ESTUDIANTE',
+          sesion.id,
+          setSubiendoMedia
+        )
+        mediaUrl = resultado.url
+        mediaType = resultado.tipo
+      }
+
+      const body: Record<string, unknown> = { contenido: textoPost.trim() }
+      if (mediaUrl) { body.mediaUrl = mediaUrl; body.mediaType = mediaType }
+
       const res = await fetch(`${API_URL}/api/posts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sesion.token}`,
         },
-        body: JSON.stringify({ contenido: textoPost.trim() }),
+        body: JSON.stringify(body),
       })
       if (res.ok) {
         const nuevoPost: PostFeed = await res.json()
         setPosts(prev => [nuevoPost, ...prev])
         setTextoPost("")
+        setArchivoMedia(null)
+        setPreviewUrl(null)
         setMostrarCrearPost(false)
+      } else {
+        toast.error("No se pudo publicar. Inténtalo de nuevo.")
       }
-    } catch {
-      // Error de red
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al publicar")
     } finally {
       setEnviandoPost(false)
+      setSubiendoMedia(false)
     }
+  }
+
+  const seleccionarArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0]
+    if (!archivo) return
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setArchivoMedia(archivo)
+    if (archivo.type.startsWith('image/')) {
+      setPreviewUrl(URL.createObjectURL(archivo))
+    } else {
+      setPreviewUrl(null)
+    }
+  }
+
+  const quitarMedia = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setArchivoMedia(null)
+    setPreviewUrl(null)
+    if (refInputArchivo.current) refInputArchivo.current.value = ""
   }
 
   const cerrarDialogoAgregar = () => {
@@ -859,22 +917,55 @@ export function StudentDashboard() {
                     <CardContent className="p-5">
                       <div className="flex gap-3 mb-3">
                         <Avatar className="w-10 h-10 shrink-0">
-                          {post.estudiante.fotoUrl && <AvatarImage src={post.estudiante.fotoUrl} />}
-                          <AvatarFallback>{post.estudiante.nombre[0]}</AvatarFallback>
+                          {post.autorTipo === 'ESTUDIANTE' && post.estudiante?.fotoUrl && (
+                            <AvatarImage src={post.estudiante.fotoUrl} />
+                          )}
+                          {post.autorTipo === 'EMPRESA' && post.empresa?.logoUrl && (
+                            <AvatarImage src={post.empresa.logoUrl} />
+                          )}
+                          <AvatarFallback>
+                            {post.autorTipo === 'ESTUDIANTE'
+                              ? (post.estudiante?.nombre[0] ?? "?")
+                              : (post.empresa?.nombre[0] ?? "?")}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold text-sm text-gray-900">
-                            {post.estudiante.nombre} {post.estudiante.apellido}
+                            {post.autorTipo === 'ESTUDIANTE'
+                              ? `${post.estudiante?.nombre} ${post.estudiante?.apellido}`
+                              : post.empresa?.nombre ?? "—"}
                           </h4>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {post.estudiante.especialidad} · {tiempo}
+                            {post.autorTipo === 'ESTUDIANTE'
+                              ? `${post.estudiante?.especialidad} · ${tiempo}`
+                              : `${post.empresa?.rubro} · ${tiempo}`}
                           </p>
                         </div>
                       </div>
 
-                      <p className="text-sm text-gray-700 leading-relaxed mb-4">{post.contenido}</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{post.contenido}</p>
 
-                      <div className="flex items-center gap-1 pt-3 border-t border-gray-50">
+                      {post.mediaUrl && post.mediaType === 'IMAGEN' && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                          <img
+                            src={post.mediaUrl}
+                            alt="Imagen del post"
+                            className="w-full max-h-80 object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                      {post.mediaUrl && post.mediaType === 'VIDEO' && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                          <video
+                            src={post.mediaUrl}
+                            controls
+                            className="w-full max-h-80"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 mt-4 pt-3 border-t border-gray-50">
                         {/* Like */}
                         <button
                           onClick={() => alternarLike(post.id)}
@@ -1243,7 +1334,13 @@ export function StudentDashboard() {
       </Dialog>
 
       {/* ── DIÁLOGO: Crear publicación ──────────────────────── */}
-      <Dialog open={mostrarCrearPost} onOpenChange={setMostrarCrearPost}>
+      <Dialog
+        open={mostrarCrearPost}
+        onOpenChange={open => {
+          if (!open) { quitarMedia(); setTextoPost("") }
+          setMostrarCrearPost(open)
+        }}
+      >
         <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>
             <DialogTitle>Crear publicación</DialogTitle>
@@ -1261,6 +1358,7 @@ export function StudentDashboard() {
                 <p className="text-xs text-gray-400">{perfil?.especialidad ?? "—"}</p>
               </div>
             </div>
+
             <Textarea
               placeholder="¿Qué quieres compartir hoy?"
               rows={4}
@@ -1269,18 +1367,69 @@ export function StudentDashboard() {
               className="resize-none"
               autoFocus
             />
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setMostrarCrearPost(false)}>
-                Cancelar
-              </Button>
+
+            {previewUrl && (
+              <div className="relative rounded-xl overflow-hidden border border-gray-100">
+                <img src={previewUrl} alt="preview" className="w-full max-h-48 object-cover" />
+                <button
+                  onClick={quitarMedia}
+                  className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {archivoMedia && !previewUrl && (
+              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-700">
+                <ImageIcon className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className="truncate flex-1">{archivoMedia.name}</span>
+                <button onClick={quitarMedia} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {subiendoMedia && (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-400">Subiendo archivo...</p>
+                <Progress value={undefined} className="h-1.5 animate-pulse" />
+              </div>
+            )}
+
+            <input
+              ref={refInputArchivo}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+              className="hidden"
+              onChange={seleccionarArchivo}
+            />
+
+            <div className="flex gap-2 justify-between items-center">
               <Button
-                className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
-                onClick={publicar}
-                disabled={!textoPost.trim() || enviandoPost}
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => refInputArchivo.current?.click()}
+                className="text-gray-500 hover:text-[#0F172A] gap-1.5"
+                disabled={subiendoMedia || enviandoPost}
               >
-                {enviandoPost ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Publicar
+                <Paperclip className="w-4 h-4" />
+                <span className="text-xs">Adjuntar foto/video</span>
               </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { quitarMedia(); setTextoPost(""); setMostrarCrearPost(false) }}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                  onClick={publicar}
+                  disabled={!textoPost.trim() || enviandoPost || subiendoMedia}
+                >
+                  {(enviandoPost || subiendoMedia) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Publicar
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
