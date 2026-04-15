@@ -51,6 +51,7 @@ model Administrador {
 
   usuario    Usuario  @relation(fields: [usuarioId], references: [id])
   colegio    Colegio  @relation(fields: [colegioId], references: [id])
+  posts      Post[]
 }
 
 // ─── ESTUDIANTE ──────────────────────────────────────────────
@@ -113,6 +114,7 @@ model Empresa {
   usuario     Usuario   @relation(fields: [usuarioId], references: [id])
   ofertas     Oferta[]
   contactos   Contacto[]
+  posts       Post[]
 }
 
 // ─── OFERTAS DE PASANTÍA ─────────────────────────────────────
@@ -156,15 +158,27 @@ enum TipoDisponibilidad {
   AMBOS
 }
 
+enum TipoMedia {
+  IMAGEN
+  VIDEO
+}
+
 // ─── POSTS DEL FEED ──────────────────────────────────────────
 
 model Post {
-  id           Int        @id @default(autoincrement())
-  contenido    String
-  estudianteId Int
-  creadoEn     DateTime   @default(now())
+  id               Int        @id @default(autoincrement())
+  contenido        String
+  mediaUrl         String?
+  mediaType        TipoMedia?
+  autorTipo        Rol        @default(ESTUDIANTE)
+  estudianteId     Int?
+  empresaId        Int?
+  administradorId  Int?
+  creadoEn         DateTime   @default(now())
 
-  estudiante   Estudiante @relation(fields: [estudianteId], references: [id])
+  estudiante       Estudiante?    @relation(fields: [estudianteId], references: [id])
+  empresa          Empresa?       @relation(fields: [empresaId], references: [id])
+  administrador    Administrador? @relation(fields: [administradorId], references: [id])
 }
 
 // ─── CONTACTO DIRECTO (empresa contacta estudiante) ──────────
