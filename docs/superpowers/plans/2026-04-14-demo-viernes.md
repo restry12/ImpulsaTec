@@ -10,6 +10,31 @@
 
 ---
 
+## Estado de ejecución (actualizado 2026-04-14)
+
+| Task | Estado | Commits |
+|---|---|---|
+| Task 1: VITE_API_URL | ✅ COMPLETO | `be99d68`, `bdb8140` |
+| Task 2: Toaster en App.tsx | ✅ COMPLETO | incluido en sesión |
+| Task 3: Schema Prisma + migración | ⏳ PENDIENTE — empezar aquí |
+| Task 4: GET /contactos/me + POST /publico | ⏳ PENDIENTE |
+| Task 5: tipoDisponibilidad en backend | ⏳ PENDIENTE |
+| Task 6: Fix contacto en PublicDirectory | ⏳ PENDIENTE |
+| Task 7: Fix likes persistence | ⏳ PENDIENTE |
+| Task 8: Fix duplicados + toasts | ⏳ PENDIENTE |
+| Task 9: Fix errores en RegisterPage | ⏳ PENDIENTE |
+| Task 10: Vista freelance en PublicDirectory | ⏳ PENDIENTE |
+| Task 11: Mis Contactos en StudentDashboard | ⏳ PENDIENTE |
+| Task 12: tipoDisponibilidad en editar perfil | ⏳ PENDIENTE |
+| Task 13: Stats reales en admin | ⏳ PENDIENTE |
+| Task 14: Toast en CompanyDashboard | ⏳ PENDIENTE |
+| Task 15: Tab Empresas en Directorio Público | ⏳ PENDIENTE |
+
+**SHA base del plan:** `80d4d68`
+**Último commit conocido:** `bdb8140` (fix .gitignore frontend)
+
+---
+
 ## Mapa de archivos
 
 | Archivo | Cambios |
