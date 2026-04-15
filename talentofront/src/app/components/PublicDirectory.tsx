@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, Mail, CheckCircle, Award, ArrowRight, Zap, GraduationCap, Briefcase, Star, ChevronLeft } from "lucide-react";
+import { Search, Mail, CheckCircle, Award, ArrowRight, Zap, GraduationCap, Briefcase, Star, ChevronLeft, Newspaper, Loader2 } from "lucide-react";
 import { Link } from "react-router";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -33,6 +33,18 @@ type Estudiante = {
   habilidades: Habilidad[]
   certificaciones: Certificacion[]
   colegio: { nombre: string }
+}
+
+type PostColegio = {
+  id: number
+  contenido: string
+  mediaUrl: string | null
+  mediaType: 'IMAGEN' | 'VIDEO' | null
+  creadoEn: string
+  administrador: {
+    nombre: string
+    colegio: { nombre: string; logoUrl: string | null }
+  } | null
 }
 
 const API_URL = import.meta.env.VITE_API_URL
@@ -76,6 +88,15 @@ export function PublicDirectory() {
   const [enviandoContacto, setEnviandoContacto] = useState(false)
   const [contactoEnviado, setContactoEnviado] = useState(false)
   const [vistaContacto, setVistaContacto] = useState(false)
+  const [novedadesColegio, setNovedadesColegio] = useState<PostColegio[]>([])
+  const [cargandoNovedades, setCargandoNovedades] = useState(true)
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/posts/colegio`)
+      .then(res => res.json())
+      .then((datos: PostColegio[]) => { setNovedadesColegio(datos); setCargandoNovedades(false) })
+      .catch(() => setCargandoNovedades(false))
+  }, [])
 
   useEffect(() => {
     fetch(`${API_URL}/api/estudiantes`)
@@ -749,6 +770,87 @@ export function PublicDirectory() {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* ── SECCIÓN: NOVEDADES DEL COLEGIO ────────────────────── */}
+      <section className="mt-16 pb-16">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-[#0F172A] rounded-lg flex items-center justify-center">
+              <Newspaper className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-[#0F172A]">Novedades del colegio</h2>
+              <p className="text-xs text-gray-400">Anuncios oficiales del Centro Educacional Cardenal José María Caro</p>
+            </div>
+          </div>
+
+          {cargandoNovedades && (
+            <div className="flex items-center justify-center py-10 text-gray-400 gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Cargando novedades...</span>
+            </div>
+          )}
+
+          {!cargandoNovedades && novedadesColegio.length === 0 && (
+            <div className="py-10 text-center text-gray-400">
+              <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No hay novedades publicadas aún.</p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {novedadesColegio.map(novedad => {
+              const diff = Date.now() - new Date(novedad.creadoEn).getTime()
+              const min = Math.floor(diff / 60000)
+              const tiempo = min < 1 ? "Ahora mismo"
+                : min < 60 ? `Hace ${min} min`
+                : min < 1440 ? `Hace ${Math.floor(min / 60)}h`
+                : `Hace ${Math.floor(min / 1440)} día${Math.floor(min / 1440) > 1 ? "s" : ""}`
+
+              return (
+                <Card key={novedad.id} className="border-0 shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex gap-3 mb-3">
+                      <Avatar className="w-10 h-10 shrink-0">
+                        {novedad.administrador?.colegio.logoUrl && (
+                          <AvatarImage src={novedad.administrador.colegio.logoUrl} />
+                        )}
+                        <AvatarFallback>
+                          {novedad.administrador?.colegio.nombre[0] ?? "C"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="font-semibold text-sm text-gray-900">
+                          {novedad.administrador?.colegio.nombre ?? "Colegio"}
+                        </h4>
+                        <p className="text-xs text-gray-400 mt-0.5">{tiempo}</p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-700 leading-relaxed">{novedad.contenido}</p>
+
+                    {novedad.mediaUrl && novedad.mediaType === 'IMAGEN' && (
+                      <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                        <img
+                          src={novedad.mediaUrl}
+                          alt="Imagen de novedad"
+                          className="w-full max-h-80 object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                    {novedad.mediaUrl && novedad.mediaType === 'VIDEO' && (
+                      <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                        <video src={novedad.mediaUrl} controls className="w-full max-h-80" />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* ── CTA ──────────────────────────────────────────────── */}
       <section className="relative bg-[#0F172A] text-white py-20 overflow-hidden">
