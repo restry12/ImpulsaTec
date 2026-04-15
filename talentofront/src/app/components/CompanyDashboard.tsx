@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bell, Search, MessageSquare, Building2, FileText, Bookmark,
   TrendingUp, SlidersHorizontal, X, LogOut, Award, CheckCircle, Mail,
-  Plus, Loader2, ToggleLeft, ToggleRight, Users, Pencil
+  Plus, Loader2, ToggleLeft, ToggleRight, Users, Pencil,
+  Home, ThumbsUp, Share2, Paperclip, ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
@@ -19,6 +20,8 @@ import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useAuth } from "../context/AuthContext";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
+import { Progress } from "./ui/progress";
+import { subirMedia } from "../../lib/supabase";
 
 type Habilidad = { id: number; nombre: string; validada: boolean }
 type Certificacion = { id: number; nombre: string; institucion: string | null; validada: boolean }
@@ -33,6 +36,17 @@ type Estudiante = {
   habilidades: Habilidad[]
   certificaciones: Certificacion[]
   colegio: { nombre: string }
+}
+
+type PostFeed = {
+  id: number
+  contenido: string
+  mediaUrl: string | null
+  mediaType: 'IMAGEN' | 'VIDEO' | null
+  autorTipo: 'ESTUDIANTE' | 'EMPRESA' | 'ADMINISTRADOR'
+  creadoEn: string
+  estudiante: { id: number; nombre: string; apellido: string; fotoUrl: string | null; especialidad: string } | null
+  empresa: { id: number; nombre: string; rubro: string; logoUrl: string | null } | null
 }
 
 const API_URL = import.meta.env.VITE_API_URL
@@ -91,7 +105,7 @@ export function CompanyDashboard() {
   const [editRubro, setEditRubro] = useState("")
   const [guardandoPerfil, setGuardandoPerfil] = useState(false)
   // Vista activa: buscar talento o mis ofertas
-  const [vistaActiva, setVistaActiva] = useState<"buscar" | "ofertas">("buscar")
+  const [vistaActiva, setVistaActiva] = useState<"buscar" | "ofertas" | "feed">("buscar")
   // Gestión de ofertas
   const [misOfertas, setMisOfertas] = useState<OfertaEmpresa[]>([])
   const [cargandoOfertas, setCargandoOfertas] = useState(false)
@@ -102,6 +116,19 @@ export function CompanyDashboard() {
   const [nuevaEspecialidad, setNuevaEspecialidad] = useState("")
   const [guardandoOferta, setGuardandoOferta] = useState(false)
   const [toggling, setToggling] = useState<number | null>(null)
+
+  // Feed compartido
+  const [posts, setPosts] = useState<PostFeed[]>([])
+  const [cargandoPosts, setCargandoPosts] = useState(false)
+  const [postsCargados, setPostsCargados] = useState(false)
+  // Crear publicación en el feed
+  const [mostrarCrearPost, setMostrarCrearPost] = useState(false)
+  const [textoPost, setTextoPost] = useState("")
+  const [enviandoPost, setEnviandoPost] = useState(false)
+  const [archivoMedia, setArchivoMedia] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [subiendoMedia, setSubiendoMedia] = useState(false)
+  const refInputArchivo = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     // Carga el perfil real de la empresa autenticada
@@ -124,6 +151,19 @@ export function CompanyDashboard() {
       .then(datos => { setEstudiantes(datos); setCargando(false) })
       .catch(() => setCargando(false))
   }, [especialidadFiltro])
+
+  useEffect(() => {
+    if (vistaActiva !== "feed" || postsCargados) return
+    setCargandoPosts(true)
+    fetch(`${API_URL}/api/posts`)
+      .then(res => res.json())
+      .then((datos: PostFeed[]) => {
+        setPosts(datos)
+        setPostsCargados(true)
+        setCargandoPosts(false)
+      })
+      .catch(() => setCargandoPosts(false))
+  }, [vistaActiva])
 
   const estudiantesFiltrados = estudiantes.filter(est => {
     const texto = busqueda.toLowerCase()
@@ -264,6 +304,62 @@ export function CompanyDashboard() {
     }
   }
 
+  const seleccionarArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0]
+    if (!archivo) return
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setArchivoMedia(archivo)
+    setPreviewUrl(archivo.type.startsWith('image/') ? URL.createObjectURL(archivo) : null)
+  }
+
+  const quitarMedia = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setArchivoMedia(null)
+    setPreviewUrl(null)
+    if (refInputArchivo.current) refInputArchivo.current.value = ""
+  }
+
+  const publicarEnFeed = async () => {
+    if (!textoPost.trim() || !sesion) return
+    setEnviandoPost(true)
+    try {
+      let mediaUrl: string | null = null
+      let mediaType: 'IMAGEN' | 'VIDEO' | null = null
+
+      if (archivoMedia) {
+        const resultado = await subirMedia(archivoMedia, 'EMPRESA', sesion.id, setSubiendoMedia)
+        mediaUrl = resultado.url
+        mediaType = resultado.tipo
+      }
+
+      const body: Record<string, unknown> = { contenido: textoPost.trim() }
+      if (mediaUrl) { body.mediaUrl = mediaUrl; body.mediaType = mediaType }
+
+      const res = await fetch(`${API_URL}/api/posts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sesion.token}`,
+        },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const nuevoPost: PostFeed = await res.json()
+        setPosts(prev => [nuevoPost, ...prev])
+        setTextoPost("")
+        quitarMedia()
+        setMostrarCrearPost(false)
+      } else {
+        toast.error("No se pudo publicar. Inténtalo de nuevo.")
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al publicar")
+    } finally {
+      setEnviandoPost(false)
+      setSubiendoMedia(false)
+    }
+  }
+
   const cerrarSesionYRedirigir = () => {
     cerrarSesion()
     navegar("/login", { replace: true })
@@ -298,6 +394,13 @@ export function CompanyDashboard() {
                     {perfil.ofertas.length}
                   </span>
                 )}
+              </button>
+              <button
+                onClick={() => setVistaActiva("feed")}
+                className={`flex items-center gap-1.5 transition-colors ${vistaActiva === "feed" ? "text-white font-semibold" : "text-white/70 hover:text-white"}`}
+              >
+                <Home className="w-4 h-4" />
+                <span className="text-sm">Feed</span>
               </button>
               {[
                 { icon: Bookmark, label: "Guardados" },
@@ -409,6 +512,104 @@ export function CompanyDashboard() {
 
           {/* ── CONTENIDO PRINCIPAL ─────────────────────────── */}
           <main className="col-span-12 lg:col-span-9">
+
+          {/* ── VISTA: FEED ────────────────────────────────────────── */}
+          {vistaActiva === "feed" && (
+            <div className="space-y-4">
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex gap-3 items-center">
+                    <Avatar className="w-10 h-10 shrink-0">
+                      {perfil?.logoUrl && <AvatarImage src={perfil.logoUrl} />}
+                      <AvatarFallback>{perfil?.nombre[0] ?? "?"}</AvatarFallback>
+                    </Avatar>
+                    <button
+                      onClick={() => setMostrarCrearPost(true)}
+                      className="flex-1 text-left px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm text-gray-400 transition-colors"
+                    >
+                      ¿Qué quieres compartir sobre tu empresa?
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {cargandoPosts && (
+                <div className="flex items-center justify-center py-12 text-gray-400 gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">Cargando publicaciones...</span>
+                </div>
+              )}
+
+              {!cargandoPosts && postsCargados && posts.length === 0 && (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="py-12 text-center text-gray-400">
+                    <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Aún no hay publicaciones en el feed.</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {posts.map(post => {
+                const diff = Date.now() - new Date(post.creadoEn).getTime()
+                const min = Math.floor(diff / 60000)
+                const tiempo = min < 1 ? "Ahora mismo"
+                  : min < 60 ? `Hace ${min} min`
+                  : min < 1440 ? `Hace ${Math.floor(min / 60)}h`
+                  : `Hace ${Math.floor(min / 1440)} día${Math.floor(min / 1440) > 1 ? "s" : ""}`
+
+                const nombreAutor = post.autorTipo === 'ESTUDIANTE'
+                  ? `${post.estudiante?.nombre} ${post.estudiante?.apellido}`
+                  : (post.empresa?.nombre ?? "—")
+                const subtituloAutor = post.autorTipo === 'ESTUDIANTE'
+                  ? post.estudiante?.especialidad ?? ""
+                  : post.empresa?.rubro ?? ""
+                const fotoAutor = post.autorTipo === 'ESTUDIANTE'
+                  ? post.estudiante?.fotoUrl
+                  : post.empresa?.logoUrl
+
+                return (
+                  <Card key={post.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-5">
+                      <div className="flex gap-3 mb-3">
+                        <Avatar className="w-10 h-10 shrink-0">
+                          {fotoAutor && <AvatarImage src={fotoAutor} />}
+                          <AvatarFallback>{nombreAutor[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm text-gray-900">{nombreAutor}</h4>
+                          <p className="text-xs text-gray-400 mt-0.5">{subtituloAutor} · {tiempo}</p>
+                        </div>
+                      </div>
+
+                      <p className="text-sm text-gray-700 leading-relaxed">{post.contenido}</p>
+
+                      {post.mediaUrl && post.mediaType === 'IMAGEN' && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                          <img src={post.mediaUrl} alt="Imagen del post" className="w-full max-h-80 object-cover" loading="lazy" />
+                        </div>
+                      )}
+                      {post.mediaUrl && post.mediaType === 'VIDEO' && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                          <video src={post.mediaUrl} controls className="w-full max-h-80" />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 pt-3 mt-3 border-t border-gray-50">
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center">
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          <span>Me gusta</span>
+                        </button>
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center">
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>Compartir</span>
+                        </button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
 
           {/* ══ VISTA: MIS OFERTAS ═══════════════════════════ */}
           {vistaActiva === "ofertas" && (
@@ -954,6 +1155,106 @@ export function CompanyDashboard() {
                 {guardandoPerfil && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 Guardar
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DIÁLOGO: Crear publicación empresa ─────────────── */}
+      <Dialog
+        open={mostrarCrearPost}
+        onOpenChange={open => {
+          if (!open) { quitarMedia(); setTextoPost("") }
+          setMostrarCrearPost(open)
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Crear publicación</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="flex gap-3 items-center">
+              <Avatar className="w-10 h-10 shrink-0">
+                {perfil?.logoUrl && <AvatarImage src={perfil.logoUrl} />}
+                <AvatarFallback>{perfil?.nombre[0] ?? "?"}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-semibold text-sm text-gray-900">{perfil?.nombre ?? "—"}</p>
+                <p className="text-xs text-gray-400">{perfil?.rubro ?? "—"}</p>
+              </div>
+            </div>
+
+            <Textarea
+              placeholder="¿Qué quieres compartir sobre tu empresa?"
+              rows={4}
+              value={textoPost}
+              onChange={e => setTextoPost(e.target.value)}
+              className="resize-none"
+              autoFocus
+            />
+
+            {previewUrl && (
+              <div className="relative rounded-xl overflow-hidden border border-gray-100">
+                <img src={previewUrl} alt="preview" className="w-full max-h-48 object-cover" />
+                <button
+                  onClick={quitarMedia}
+                  className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {archivoMedia && !previewUrl && (
+              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-700">
+                <ImageIcon className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className="truncate flex-1">{archivoMedia.name}</span>
+                <button onClick={quitarMedia} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {subiendoMedia && (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-400">Subiendo archivo...</p>
+                <Progress value={undefined} className="h-1.5 animate-pulse" />
+              </div>
+            )}
+
+            <input
+              ref={refInputArchivo}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+              className="hidden"
+              onChange={seleccionarArchivo}
+            />
+
+            <div className="flex gap-2 justify-between items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => refInputArchivo.current?.click()}
+                className="text-gray-500 hover:text-[#0F172A] gap-1.5"
+                disabled={subiendoMedia || enviandoPost}
+              >
+                <Paperclip className="w-4 h-4" />
+                <span className="text-xs">Adjuntar foto/video</span>
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { quitarMedia(); setTextoPost(""); setMostrarCrearPost(false) }}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                  onClick={publicarEnFeed}
+                  disabled={!textoPost.trim() || enviandoPost || subiendoMedia}
+                >
+                  {(enviandoPost || subiendoMedia) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Publicar
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
