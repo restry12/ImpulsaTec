@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import {
   LayoutDashboard, Users, CheckSquare, MessageSquare, BarChart3,
   Bell, Search, Menu, TrendingUp, UserCheck, LogOut, Loader2, Briefcase, Building2, ExternalLink,
-  Newspaper, Paperclip, ImageIcon, X, Plus
+  Newspaper, Paperclip, ImageIcon, X, Plus, MessageCircle, Trash2, MoreVertical, Send
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "./ui/button";
@@ -48,10 +48,25 @@ type PostColegio = {
   mediaUrl: string | null
   mediaType: 'IMAGEN' | 'VIDEO' | null
   creadoEn: string
+  _count: { comentarios: number }
   administrador: {
+    id: number
     nombre: string
     colegio: { nombre: string; logoUrl: string | null }
   } | null
+}
+
+type Comentario = {
+  id: number
+  contenido: string
+  autorTipo: 'ESTUDIANTE' | 'EMPRESA' | 'ADMINISTRADOR'
+  estudianteId: number | null
+  empresaId: number | null
+  administradorId: number | null
+  creadoEn: string
+  estudiante: { id: number; nombre: string; apellido: string; fotoUrl: string | null } | null
+  empresa: { id: number; nombre: string; logoUrl: string | null } | null
+  administrador: { id: number; nombre: string; colegio: { nombre: string; logoUrl: string | null } } | null
 }
 
 type EmpresaAdmin = {
@@ -118,6 +133,12 @@ export function SchoolAdminPanel() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [subiendoMedia, setSubiendoMedia] = useState(false)
   const refInputArchivo = useRef<HTMLInputElement>(null)
+
+  // Comentarios inline por novedad
+  const [comentariosAbiertos, setComentariosAbiertos] = useState<Set<number>>(new Set())
+  const [comentariosPorPost, setComentariosPorPost] = useState<Record<number, Comentario[]>>({})
+  const [textosComentario, setTextosComentario] = useState<Record<number, string>>({})
+  const [enviandoComentario, setEnviandoComentario] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     if (!sesion) return
@@ -336,6 +357,78 @@ export function SchoolAdminPanel() {
       setEnviandoNovedad(false)
       setSubiendoMedia(false)
     }
+  }
+
+  async function toggleComentarios(postId: number) {
+    if (comentariosAbiertos.has(postId)) {
+      setComentariosAbiertos(prev => { const s = new Set(prev); s.delete(postId); return s })
+      return
+    }
+    if (!comentariosPorPost[postId]) {
+      try {
+        const res = await fetch(`${API_URL}/api/posts/${postId}/comentarios`)
+        const datos: Comentario[] = await res.json()
+        setComentariosPorPost(prev => ({ ...prev, [postId]: datos }))
+      } catch {
+        setComentariosPorPost(prev => ({ ...prev, [postId]: [] }))
+      }
+    }
+    setComentariosAbiertos(prev => new Set(prev).add(postId))
+  }
+
+  async function enviarComentario(postId: number) {
+    const contenido = (textosComentario[postId] ?? '').trim()
+    if (!contenido || !sesion) return
+    setEnviandoComentario(prev => new Set(prev).add(postId))
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${postId}/comentarios`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sesion.token}`,
+        },
+        body: JSON.stringify({ contenido }),
+      })
+      if (!res.ok) return
+      const nuevo: Comentario = await res.json()
+      setComentariosPorPost(prev => ({ ...prev, [postId]: [...(prev[postId] ?? []), nuevo] }))
+      setTextosComentario(prev => ({ ...prev, [postId]: '' }))
+      setNovedades(prev => prev.map(n =>
+        n.id === postId ? { ...n, _count: { comentarios: n._count.comentarios + 1 } } : n
+      ))
+    } finally {
+      setEnviandoComentario(prev => { const s = new Set(prev); s.delete(postId); return s })
+    }
+  }
+
+  async function eliminarComentario(postId: number, comentarioId: number) {
+    if (!sesion) return
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${postId}/comentarios/${comentarioId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+      if (!res.ok) return
+      setComentariosPorPost(prev => ({
+        ...prev,
+        [postId]: (prev[postId] ?? []).filter(c => c.id !== comentarioId),
+      }))
+      setNovedades(prev => prev.map(n =>
+        n.id === postId ? { ...n, _count: { comentarios: Math.max(0, n._count.comentarios - 1) } } : n
+      ))
+    } catch {}
+  }
+
+  async function eliminarNovedad(postId: number) {
+    if (!sesion) return
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${postId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+      if (!res.ok) return
+      setNovedades(prev => prev.filter(n => n.id !== postId))
+    } catch {}
   }
 
   const cerrarSesionYRedirigir = () => {
@@ -767,7 +860,7 @@ export function SchoolAdminPanel() {
                 return (
                   <Card key={novedad.id} className="border-0 shadow-sm">
                     <CardContent className="p-5">
-                      <div className="flex gap-3 mb-3">
+                      <div className="flex gap-3 mb-3 items-start">
                         <Avatar className="w-10 h-10 shrink-0">
                           {novedad.administrador?.colegio.logoUrl && (
                             <AvatarImage src={novedad.administrador.colegio.logoUrl} />
@@ -776,12 +869,28 @@ export function SchoolAdminPanel() {
                             {novedad.administrador?.colegio.nombre[0] ?? "C"}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
+                        <div className="flex-1">
                           <h4 className="font-semibold text-sm text-gray-900">
                             {novedad.administrador?.colegio.nombre ?? "Colegio"}
                           </h4>
                           <p className="text-xs text-gray-400 mt-0.5">{tiempo}</p>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-red-600 focus:text-red-600 gap-2"
+                              onClick={() => eliminarNovedad(novedad.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Eliminar novedad
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
 
                       <p className="text-sm text-gray-700 leading-relaxed">{novedad.contenido}</p>
@@ -794,6 +903,91 @@ export function SchoolAdminPanel() {
                       {novedad.mediaUrl && novedad.mediaType === 'VIDEO' && (
                         <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
                           <video src={novedad.mediaUrl} controls className="w-full max-h-80" />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 mt-3 pt-3 border-t border-gray-50">
+                        <button
+                          onClick={() => toggleComentarios(novedad.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex-1 justify-center ${
+                            comentariosAbiertos.has(novedad.id)
+                              ? "text-[#2563EB] bg-[#DBEAFE]/50"
+                              : "text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50"
+                          }`}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>{novedad._count?.comentarios ?? 0}</span>
+                        </button>
+                      </div>
+
+                      {comentariosAbiertos.has(novedad.id) && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+                          {(comentariosPorPost[novedad.id] ?? []).length === 0 && (
+                            <p className="text-xs text-gray-400 text-center py-2">Aún no hay comentarios</p>
+                          )}
+                          {(comentariosPorPost[novedad.id] ?? []).map(c => {
+                            const nombreC = c.autorTipo === 'ESTUDIANTE'
+                              ? `${c.estudiante?.nombre} ${c.estudiante?.apellido}`
+                              : c.autorTipo === 'EMPRESA'
+                              ? c.empresa?.nombre ?? "—"
+                              : c.administrador?.colegio?.nombre ?? "Colegio"
+                            const fotoC = c.autorTipo === 'ESTUDIANTE'
+                              ? c.estudiante?.fotoUrl
+                              : c.autorTipo === 'EMPRESA'
+                              ? c.empresa?.logoUrl
+                              : c.administrador?.colegio?.logoUrl
+                            const diffC = Date.now() - new Date(c.creadoEn).getTime()
+                            const minC = Math.floor(diffC / 60000)
+                            const tiempoC = minC < 1 ? "Ahora" : minC < 60 ? `${minC}m` : minC < 1440 ? `${Math.floor(minC / 60)}h` : `${Math.floor(minC / 1440)}d`
+                            return (
+                              <div key={c.id} className="flex gap-2 group">
+                                <Avatar className="w-7 h-7 shrink-0">
+                                  {fotoC && <AvatarImage src={fotoC} />}
+                                  <AvatarFallback className="text-xs">{nombreC[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-semibold text-gray-800">{nombreC}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-gray-400">{tiempoC}</span>
+                                      <button
+                                        onClick={() => eliminarComentario(novedad.id, c.id)}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-400 hover:text-red-500"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-gray-700 mt-0.5">{c.contenido}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          <div className="flex gap-2 items-center">
+                            <Avatar className="w-7 h-7 shrink-0">
+                              <AvatarFallback className="text-xs">A</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 flex gap-2">
+                              <input
+                                type="text"
+                                value={textosComentario[novedad.id] ?? ''}
+                                onChange={e => setTextosComentario(prev => ({ ...prev, [novedad.id]: e.target.value }))}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(novedad.id) } }}
+                                placeholder="Escribe un comentario..."
+                                className="flex-1 text-xs px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20"
+                              />
+                              <button
+                                onClick={() => enviarComentario(novedad.id)}
+                                disabled={!textosComentario[novedad.id]?.trim() || enviandoComentario.has(novedad.id)}
+                                className="p-1.5 rounded-xl bg-[#0F172A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2563EB] transition-colors"
+                              >
+                                {enviandoComentario.has(novedad.id)
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <Send className="w-3.5 h-3.5" />
+                                }
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </CardContent>
