@@ -102,6 +102,7 @@ router.post('/', verificarToken, async (req, res) => {
         estudiante: incluirEstudiante,
         empresa: incluirEmpresa,
         administrador: incluirAdministrador,
+        _count: { select: { comentarios: true } },
       },
     })
 
