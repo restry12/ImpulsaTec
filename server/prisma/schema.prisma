@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── USUARIOS BASE ───────────────────────────────────────────
+
+model Usuario {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  rol        Rol
+  creadoEn   DateTime @default(now())
+
+  estudiante  Estudiante?
+  empresa     Empresa?
+  administrador Administrador?
+}
+
+enum Rol {
+  ESTUDIANTE
+  EMPRESA
+  ADMINISTRADOR
+  VISITANTE
+}
+
+// ─── COLEGIO ─────────────────────────────────────────────────
+
+model Colegio {
+  id         Int      @id @default(autoincrement())
+  nombre     String
+  comuna     String
+  region     String
+  logoUrl    String?
+  creadoEn   DateTime @default(now())
+
+  administradores Administrador[]
+  estudiantes     Estudiante[]
+}
+
+// ─── ADMINISTRADOR (es el colegio) ───────────────────────────
+
+model Administrador {
+  id         Int      @id @default(autoincrement())
+  nombre     String
+  usuarioId  Int      @unique
+  colegioId  Int
+
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  colegio    Colegio  @relation(fields: [colegioId], references: [id])
+}
+
+// ─── ESTUDIANTE ──────────────────────────────────────────────
+
+model Estudiante {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  apellido     String
+  especialidad String
+  descripcion  String?
+  fotoUrl      String?
+  disponible         Boolean            @default(true)
+  tipoDisponibilidad TipoDisponibilidad @default(PASANTIA)
+  usuarioId    Int      @unique
+  colegioId    Int
+  creadoEn     DateTime @default(now())
+
+  usuario      Usuario      @relation(fields: [usuarioId], references: [id])
+  colegio      Colegio      @relation(fields: [colegioId], references: [id])
+  habilidades  Habilidad[]
+  certificaciones Certificacion[]
+  postulaciones   Postulacion[]
+  contactos       Contacto[]
+  posts           Post[]
+}
+
+// ─── HABILIDADES Y CERTIFICACIONES ───────────────────────────
+
+model Habilidad {
+  id           Int        @id @default(autoincrement())
+  nombre       String
+  validada     Boolean    @default(false)
+  estudianteId Int
+
+  estudiante   Estudiante @relation(fields: [estudianteId], references: [id])
+}
+
+model Certificacion {
+  id             Int        @id @default(autoincrement())
+  nombre         String
+  institucion    String?
+  fechaObtencion DateTime?
+  validada       Boolean    @default(false)
+  estudianteId   Int
+
+  estudiante     Estudiante @relation(fields: [estudianteId], references: [id])
+}
+
+// ─── EMPRESA ─────────────────────────────────────────────────
+
+model Empresa {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  rubro       String
+  descripcion String?
+  logoUrl     String?
+  usuarioId   Int      @unique
+  creadoEn    DateTime @default(now())
+
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id])
+  ofertas     Oferta[]
+  contactos   Contacto[]
+}
+
+// ─── OFERTAS DE PASANTÍA ─────────────────────────────────────
+
+model Oferta {
+  id           Int      @id @default(autoincrement())
+  titulo       String
+  descripcion  String
+  especialidad String
+  empresaId    Int
+  activa       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  empresa      Empresa       @relation(fields: [empresaId], references: [id])
+  postulaciones Postulacion[]
+}
+
+// ─── POSTULACIONES ───────────────────────────────────────────
+
+model Postulacion {
+  id           Int      @id @default(autoincrement())
+  estudianteId Int
+  ofertaId     Int
+  estado       EstadoPostulacion @default(PENDIENTE)
+  creadoEn     DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  estudiante   Estudiante @relation(fields: [estudianteId], references: [id])
+  oferta       Oferta     @relation(fields: [ofertaId], references: [id])
+}
+
+enum EstadoPostulacion {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
+enum TipoDisponibilidad {
+  PASANTIA
+  FREELANCE
+  AMBOS
+}
+
+// ─── POSTS DEL FEED ──────────────────────────────────────────
+
+model Post {
+  id           Int        @id @default(autoincrement())
+  contenido    String
+  estudianteId Int
+  creadoEn     DateTime   @default(now())
+
+  estudiante   Estudiante @relation(fields: [estudianteId], references: [id])
+}
+
+// ─── CONTACTO DIRECTO (empresa contacta estudiante) ──────────
+
+model Contacto {
+  id               Int      @id @default(autoincrement())
+  empresaId        Int?
+  estudianteId     Int
+  mensaje          String?
+  nombreRemitente  String?
+  emailRemitente   String?
+  creadoEn         DateTime @default(now())
+
+  empresa          Empresa?    @relation(fields: [empresaId], references: [id])
+  estudiante       Estudiante  @relation(fields: [estudianteId], references: [id])
+}
