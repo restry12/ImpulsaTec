@@ -4,7 +4,8 @@ import {
   Bell, Search, Home, Users, Briefcase, MessageSquare,
   Plus, ThumbsUp, MessageCircle, Share2, Download, Sparkles,
   LogOut, User, Check, Loader2, ClipboardList, Award, Pencil,
-  Building2, CheckCircle2, X, Mail, Paperclip, ImageIcon
+  Building2, CheckCircle2, X, Mail, Paperclip, ImageIcon,
+  Trash2, MoreVertical, Send
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
@@ -28,7 +29,11 @@ type PostFeed = {
   mediaUrl: string | null
   mediaType: 'IMAGEN' | 'VIDEO' | null
   autorTipo: 'ESTUDIANTE' | 'EMPRESA' | 'ADMINISTRADOR'
+  estudianteId: number | null
+  empresaId: number | null
+  administradorId: number | null
   creadoEn: string
+  _count: { comentarios: number }
   estudiante: {
     id: number
     nombre: string
@@ -42,6 +47,18 @@ type PostFeed = {
     rubro: string
     logoUrl: string | null
   } | null
+}
+type Comentario = {
+  id: number
+  contenido: string
+  autorTipo: 'ESTUDIANTE' | 'EMPRESA' | 'ADMINISTRADOR'
+  estudianteId: number | null
+  empresaId: number | null
+  administradorId: number | null
+  creadoEn: string
+  estudiante: { id: number; nombre: string; apellido: string; fotoUrl: string | null } | null
+  empresa: { id: number; nombre: string; logoUrl: string | null } | null
+  administrador: { id: number; nombre: string; colegio: { nombre: string; logoUrl: string | null } } | null
 }
 type Oferta = { id: number; titulo: string; especialidad: string }
 type Empresa = {
@@ -105,6 +122,11 @@ export function StudentDashboard() {
   // Posts del feed (cargados desde la API)
   const [posts, setPosts] = useState<PostFeed[]>([])
   const [cargandoPosts, setCargandoPosts] = useState(true)
+  // Comentarios inline por post
+  const [comentariosAbiertos, setComentariosAbiertos] = useState<Set<number>>(new Set())
+  const [comentariosPorPost, setComentariosPorPost] = useState<Record<number, Comentario[]>>({})
+  const [textosComentario, setTextosComentario] = useState<Record<number, string>>({})
+  const [enviandoComentario, setEnviandoComentario] = useState<Set<number>>(new Set())
   const [likesActivos, setLikesActivos] = useState<Set<number>>(() => {
     const clave = `impulsa_likes_${sesion?.id}`
     try {
@@ -244,6 +266,80 @@ export function StudentDashboard() {
       localStorage.setItem(clave, JSON.stringify([...siguiente]))
       return siguiente
     })
+  }
+
+  async function toggleComentarios(postId: number) {
+    if (comentariosAbiertos.has(postId)) {
+      setComentariosAbiertos(prev => {
+        const s = new Set(prev); s.delete(postId); return s
+      })
+      return
+    }
+    if (!comentariosPorPost[postId]) {
+      try {
+        const res = await fetch(`${API_URL}/api/posts/${postId}/comentarios`)
+        const datos: Comentario[] = await res.json()
+        setComentariosPorPost(prev => ({ ...prev, [postId]: datos }))
+      } catch {
+        setComentariosPorPost(prev => ({ ...prev, [postId]: [] }))
+      }
+    }
+    setComentariosAbiertos(prev => new Set(prev).add(postId))
+  }
+
+  async function enviarComentario(postId: number) {
+    const contenido = (textosComentario[postId] ?? '').trim()
+    if (!contenido || !sesion) return
+    setEnviandoComentario(prev => new Set(prev).add(postId))
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${postId}/comentarios`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sesion.token}`,
+        },
+        body: JSON.stringify({ contenido }),
+      })
+      if (!res.ok) return
+      const nuevo: Comentario = await res.json()
+      setComentariosPorPost(prev => ({ ...prev, [postId]: [...(prev[postId] ?? []), nuevo] }))
+      setTextosComentario(prev => ({ ...prev, [postId]: '' }))
+      setPosts(prev => prev.map(p =>
+        p.id === postId ? { ...p, _count: { comentarios: p._count.comentarios + 1 } } : p
+      ))
+    } finally {
+      setEnviandoComentario(prev => { const s = new Set(prev); s.delete(postId); return s })
+    }
+  }
+
+  async function eliminarComentario(postId: number, comentarioId: number) {
+    if (!sesion) return
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${postId}/comentarios/${comentarioId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+      if (!res.ok) return
+      setComentariosPorPost(prev => ({
+        ...prev,
+        [postId]: (prev[postId] ?? []).filter(c => c.id !== comentarioId),
+      }))
+      setPosts(prev => prev.map(p =>
+        p.id === postId ? { ...p, _count: { comentarios: Math.max(0, p._count.comentarios - 1) } } : p
+      ))
+    } catch {}
+  }
+
+  async function eliminarPost(postId: number) {
+    if (!sesion) return
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${postId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+      if (!res.ok) return
+      setPosts(prev => prev.filter(p => p.id !== postId))
+    } catch {}
   }
 
   const compartirPost = async (post: PostFeed) => {
@@ -915,7 +1011,7 @@ export function StudentDashboard() {
                 >
                   <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
                     <CardContent className="p-5">
-                      <div className="flex gap-3 mb-3">
+                      <div className="flex gap-3 mb-3 items-start">
                         <Avatar className="w-10 h-10 shrink-0">
                           {post.autorTipo === 'ESTUDIANTE' && post.estudiante?.fotoUrl && (
                             <AvatarImage src={post.estudiante.fotoUrl} />
@@ -941,6 +1037,27 @@ export function StudentDashboard() {
                               : `${post.empresa?.rubro} · ${tiempo}`}
                           </p>
                         </div>
+                        {(
+                          (post.autorTipo === 'ESTUDIANTE' && post.estudianteId === perfil?.id) ||
+                          sesion?.rol === 'ADMINISTRADOR'
+                        ) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-red-600 focus:text-red-600 gap-2"
+                                onClick={() => eliminarPost(post.id)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Eliminar publicación
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
 
                       <p className="text-sm text-gray-700 leading-relaxed">{post.contenido}</p>
@@ -966,7 +1083,6 @@ export function StudentDashboard() {
                       )}
 
                       <div className="flex items-center gap-1 mt-4 pt-3 border-t border-gray-50">
-                        {/* Like */}
                         <button
                           onClick={() => alternarLike(post.id)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex-1 justify-center ${
@@ -978,14 +1094,17 @@ export function StudentDashboard() {
                           <ThumbsUp className={`w-3.5 h-3.5 ${likesActivos.has(post.id) ? "fill-[#2563EB]" : ""}`} />
                           <span>{likesActivos.has(post.id) ? 1 : 0}</span>
                         </button>
-                        {/* Comentar */}
                         <button
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center"
+                          onClick={() => toggleComentarios(post.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex-1 justify-center ${
+                            comentariosAbiertos.has(post.id)
+                              ? "text-[#2563EB] bg-[#DBEAFE]/50"
+                              : "text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50"
+                          }`}
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
-                          <span>Comentar</span>
+                          <span>{post._count?.comentarios ?? 0}</span>
                         </button>
-                        {/* Compartir */}
                         <button
                           onClick={() => compartirPost(post)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center"
@@ -994,6 +1113,86 @@ export function StudentDashboard() {
                           <span>Compartir</span>
                         </button>
                       </div>
+
+                      {comentariosAbiertos.has(post.id) && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+                          {(comentariosPorPost[post.id] ?? []).length === 0 && (
+                            <p className="text-xs text-gray-400 text-center py-2">Sé el primero en comentar</p>
+                          )}
+                          {(comentariosPorPost[post.id] ?? []).map(c => {
+                            const nombreC = c.autorTipo === 'ESTUDIANTE'
+                              ? `${c.estudiante?.nombre} ${c.estudiante?.apellido}`
+                              : c.autorTipo === 'EMPRESA'
+                              ? c.empresa?.nombre ?? "—"
+                              : c.administrador?.colegio?.nombre ?? "Colegio"
+                            const fotoC = c.autorTipo === 'ESTUDIANTE'
+                              ? c.estudiante?.fotoUrl
+                              : c.autorTipo === 'EMPRESA'
+                              ? c.empresa?.logoUrl
+                              : c.administrador?.colegio?.logoUrl
+                            const esMioC =
+                              (c.autorTipo === 'ESTUDIANTE' && c.estudianteId === perfil?.id) ||
+                              sesion?.rol === 'ADMINISTRADOR'
+                            const diffC = Date.now() - new Date(c.creadoEn).getTime()
+                            const minC = Math.floor(diffC / 60000)
+                            const tiempoC = minC < 1 ? "Ahora"
+                              : minC < 60 ? `${minC}m`
+                              : minC < 1440 ? `${Math.floor(minC / 60)}h`
+                              : `${Math.floor(minC / 1440)}d`
+                            return (
+                              <div key={c.id} className="flex gap-2 group">
+                                <Avatar className="w-7 h-7 shrink-0">
+                                  {fotoC && <AvatarImage src={fotoC} />}
+                                  <AvatarFallback className="text-xs">{nombreC[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-semibold text-gray-800">{nombreC}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-gray-400">{tiempoC}</span>
+                                      {esMioC && (
+                                        <button
+                                          onClick={() => eliminarComentario(post.id, c.id)}
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-400 hover:text-red-500"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-gray-700 mt-0.5">{c.contenido}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          <div className="flex gap-2 items-center">
+                            <Avatar className="w-7 h-7 shrink-0">
+                              {perfil?.fotoUrl && <AvatarImage src={perfil.fotoUrl} />}
+                              <AvatarFallback className="text-xs">{perfil?.nombre[0] ?? "?"}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 flex gap-2">
+                              <input
+                                type="text"
+                                value={textosComentario[post.id] ?? ''}
+                                onChange={e => setTextosComentario(prev => ({ ...prev, [post.id]: e.target.value }))}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(post.id) } }}
+                                placeholder="Escribe un comentario..."
+                                className="flex-1 text-xs px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20"
+                              />
+                              <button
+                                onClick={() => enviarComentario(post.id)}
+                                disabled={!textosComentario[post.id]?.trim() || enviandoComentario.has(post.id)}
+                                className="p-1.5 rounded-xl bg-[#0F172A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2563EB] transition-colors"
+                              >
+                                {enviandoComentario.has(post.id)
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <Send className="w-3.5 h-3.5" />
+                                }
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
