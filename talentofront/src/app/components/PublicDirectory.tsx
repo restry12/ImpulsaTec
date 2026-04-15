@@ -94,7 +94,10 @@ export function PublicDirectory() {
   useEffect(() => {
     fetch(`${API_URL}/api/posts/colegio`)
       .then(res => res.json())
-      .then((datos: PostColegio[]) => { setNovedadesColegio(datos); setCargandoNovedades(false) })
+      .then((datos: unknown) => {
+        setNovedadesColegio(Array.isArray(datos) ? datos : [])
+        setCargandoNovedades(false)
+      })
       .catch(() => setCargandoNovedades(false))
   }, [])
 
