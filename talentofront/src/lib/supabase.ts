@@ -38,7 +38,8 @@ export async function subirMedia(
   }
 
   const tipo: 'IMAGEN' | 'VIDEO' = esImagen ? 'IMAGEN' : 'VIDEO'
-  const ruta = `${autorTipo}/${usuarioId}/${Date.now()}-${archivo.name}`
+  const nombreSanitizado = archivo.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+  const ruta = `${autorTipo}/${usuarioId}/${Date.now()}-${nombreSanitizado}`
 
   onSubiendo(true)
   const { error } = await supabase.storage

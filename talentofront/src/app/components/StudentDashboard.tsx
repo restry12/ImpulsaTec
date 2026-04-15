@@ -980,7 +980,6 @@ export function StudentDashboard() {
                         </button>
                         {/* Comentar */}
                         <button
-                          onClick={() => setMostrarCrearPost(true)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
