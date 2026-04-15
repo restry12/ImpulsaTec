@@ -1,20 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import {
   LayoutDashboard, Users, CheckSquare, MessageSquare, BarChart3,
-  Bell, Search, Menu, TrendingUp, UserCheck, LogOut, Loader2, Briefcase, Building2, ExternalLink
+  Bell, Search, Menu, TrendingUp, UserCheck, LogOut, Loader2, Briefcase, Building2, ExternalLink,
+  Newspaper, Paperclip, ImageIcon, X, Plus
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Switch } from "./ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { useAuth } from "../context/AuthContext";
+import { Progress } from "./ui/progress";
+import { Textarea } from "./ui/textarea";
+import { subirMedia } from "../../lib/supabase";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
 
 type Habilidad = { id: number; nombre: string; validada: boolean }
@@ -38,6 +42,18 @@ type Estudiante = {
   certificaciones: Certificacion[]
   colegio: { nombre: string }
 }
+type PostColegio = {
+  id: number
+  contenido: string
+  mediaUrl: string | null
+  mediaType: 'IMAGEN' | 'VIDEO' | null
+  creadoEn: string
+  administrador: {
+    nombre: string
+    colegio: { nombre: string; logoUrl: string | null }
+  } | null
+}
+
 type EmpresaAdmin = {
   id: number
   nombre: string
@@ -64,7 +80,7 @@ const seccionesMenu = [
   { icon: CheckSquare, label: "Validaciones", color: "text-emerald-600" },
   { icon: Briefcase, label: "Postulaciones", color: "text-amber-600" },
   { icon: Building2, label: "Empresas", color: "text-indigo-600" },
-  { icon: MessageSquare, label: "Muro", color: "text-purple-600" },
+  { icon: Newspaper, label: "Novedades", color: "text-purple-600" },
   { icon: BarChart3, label: "Métricas", color: "text-rose-600" },
 ]
 
@@ -90,6 +106,18 @@ export function SchoolAdminPanel() {
   const [validacionesHab, setValidacionesHab] = useState<Record<number, boolean>>({})
   const [validacionesCert, setValidacionesCert] = useState<Record<number, boolean>>({})
   const [guardando, setGuardando] = useState(false)
+
+  // Novedades del colegio
+  const [novedades, setNovedades] = useState<PostColegio[]>([])
+  const [cargandoNovedades, setCargandoNovedades] = useState(false)
+  const [novedadesCargadas, setNovedadesCargadas] = useState(false)
+  const [mostrarCrearNovedad, setMostrarCrearNovedad] = useState(false)
+  const [textoNovedad, setTextoNovedad] = useState("")
+  const [enviandoNovedad, setEnviandoNovedad] = useState(false)
+  const [archivoMedia, setArchivoMedia] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [subiendoMedia, setSubiendoMedia] = useState(false)
+  const refInputArchivo = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!sesion) return
@@ -134,6 +162,19 @@ export function SchoolAdminPanel() {
         setCargandoPostulaciones(false)
       })
       .catch(() => setCargandoPostulaciones(false))
+  }, [seccionActiva])
+
+  useEffect(() => {
+    if (seccionActiva !== "Novedades" || novedadesCargadas) return
+    setCargandoNovedades(true)
+    fetch(`${API_URL}/api/posts/colegio`)
+      .then(res => res.json())
+      .then((datos: PostColegio[]) => {
+        setNovedades(datos)
+        setNovedadesCargadas(true)
+        setCargandoNovedades(false)
+      })
+      .catch(() => setCargandoNovedades(false))
   }, [seccionActiva])
 
   // Carga empresas si aún no están cuando se entra a esa sección
@@ -240,6 +281,60 @@ export function SchoolAdminPanel() {
     } finally {
       setGuardando(false)
       setEstudianteValidar(null)
+    }
+  }
+
+  const seleccionarArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0]
+    if (!archivo) return
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setArchivoMedia(archivo)
+    setPreviewUrl(archivo.type.startsWith('image/') ? URL.createObjectURL(archivo) : null)
+  }
+
+  const quitarMedia = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setArchivoMedia(null)
+    setPreviewUrl(null)
+    if (refInputArchivo.current) refInputArchivo.current.value = ""
+  }
+
+  const publicarNovedad = async () => {
+    if (!textoNovedad.trim() || !sesion) return
+    setEnviandoNovedad(true)
+    try {
+      let mediaUrl: string | null = null
+      let mediaType: 'IMAGEN' | 'VIDEO' | null = null
+
+      if (archivoMedia) {
+        const resultado = await subirMedia(archivoMedia, 'ADMINISTRADOR', sesion.id, setSubiendoMedia)
+        mediaUrl = resultado.url
+        mediaType = resultado.tipo
+      }
+
+      const body: Record<string, unknown> = { contenido: textoNovedad.trim() }
+      if (mediaUrl) { body.mediaUrl = mediaUrl; body.mediaType = mediaType }
+
+      const res = await fetch(`${API_URL}/api/posts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sesion.token}`,
+        },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const nueva: PostColegio = await res.json()
+        setNovedades(prev => [nueva, ...prev])
+        setTextoNovedad("")
+        quitarMedia()
+        setMostrarCrearNovedad(false)
+      }
+    } catch {
+      // Error de red silencioso
+    } finally {
+      setEnviandoNovedad(false)
+      setSubiendoMedia(false)
     }
   }
 
@@ -379,7 +474,7 @@ export function SchoolAdminPanel() {
               {seccionActiva === "Validaciones" && "Valida competencias y disponibilidad"}
               {seccionActiva === "Postulaciones" && "Gestiona las postulaciones de pasantía"}
               {seccionActiva === "Empresas" && "Empresas registradas en la plataforma"}
-              {seccionActiva === "Muro" && "Publicaciones de la comunidad"}
+              {seccionActiva === "Novedades" && "Anuncios y novedades del colegio"}
               {seccionActiva === "Métricas" && "Estadísticas y reportes"}
             </p>
           </div>
@@ -630,8 +725,86 @@ export function SchoolAdminPanel() {
             </motion.div>
           )}
 
+          {/* ── SECCIÓN: NOVEDADES ─────────────────────────────── */}
+          {seccionActiva === "Novedades" && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-500">Publica anuncios visibles para toda la comunidad.</p>
+                <Button
+                  onClick={() => setMostrarCrearNovedad(true)}
+                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white gap-1.5"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nueva novedad
+                </Button>
+              </div>
+
+              {cargandoNovedades && (
+                <div className="flex items-center justify-center py-12 text-gray-400 gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">Cargando novedades...</span>
+                </div>
+              )}
+
+              {!cargandoNovedades && novedadesCargadas && novedades.length === 0 && (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="py-12 text-center text-gray-400">
+                    <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Aún no hay novedades publicadas.</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {novedades.map(novedad => {
+                const diff = Date.now() - new Date(novedad.creadoEn).getTime()
+                const min = Math.floor(diff / 60000)
+                const tiempo = min < 1 ? "Ahora mismo"
+                  : min < 60 ? `Hace ${min} min`
+                  : min < 1440 ? `Hace ${Math.floor(min / 60)}h`
+                  : `Hace ${Math.floor(min / 1440)} día${Math.floor(min / 1440) > 1 ? "s" : ""}`
+
+                return (
+                  <Card key={novedad.id} className="border-0 shadow-sm">
+                    <CardContent className="p-5">
+                      <div className="flex gap-3 mb-3">
+                        <Avatar className="w-10 h-10 shrink-0">
+                          {novedad.administrador?.colegio.logoUrl && (
+                            <AvatarImage src={novedad.administrador.colegio.logoUrl} />
+                          )}
+                          <AvatarFallback>
+                            {novedad.administrador?.colegio.nombre[0] ?? "C"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h4 className="font-semibold text-sm text-gray-900">
+                            {novedad.administrador?.colegio.nombre ?? "Colegio"}
+                          </h4>
+                          <p className="text-xs text-gray-400 mt-0.5">{tiempo}</p>
+                        </div>
+                      </div>
+
+                      <p className="text-sm text-gray-700 leading-relaxed">{novedad.contenido}</p>
+
+                      {novedad.mediaUrl && novedad.mediaType === 'IMAGEN' && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                          <img src={novedad.mediaUrl} alt="Imagen" className="w-full max-h-80 object-cover" loading="lazy" />
+                        </div>
+                      )}
+                      {novedad.mediaUrl && novedad.mediaType === 'VIDEO' && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
+                          <video src={novedad.mediaUrl} controls className="w-full max-h-80" />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+
           {/* ── SECCIÓN: Estudiantes / Validaciones / Dashboard ─ */}
-          {seccionActiva !== "Postulaciones" && seccionActiva !== "Empresas" && (
+          {seccionActiva !== "Postulaciones" && seccionActiva !== "Empresas" && seccionActiva !== "Novedades" && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -759,6 +932,95 @@ export function SchoolAdminPanel() {
           )}
         </main>
       </div>
+
+      {/* ── DIÁLOGO: Nueva novedad ─────────────────────────── */}
+      <Dialog
+        open={mostrarCrearNovedad}
+        onOpenChange={open => {
+          if (!open) { quitarMedia(); setTextoNovedad("") }
+          setMostrarCrearNovedad(open)
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Nueva novedad</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Textarea
+              placeholder="Escribe el anuncio para la comunidad..."
+              rows={4}
+              value={textoNovedad}
+              onChange={e => setTextoNovedad(e.target.value)}
+              className="resize-none"
+              autoFocus
+            />
+
+            {previewUrl && (
+              <div className="relative rounded-xl overflow-hidden border border-gray-100">
+                <img src={previewUrl} alt="preview" className="w-full max-h-48 object-cover" />
+                <button
+                  onClick={quitarMedia}
+                  className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {archivoMedia && !previewUrl && (
+              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-700">
+                <ImageIcon className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className="truncate flex-1">{archivoMedia.name}</span>
+                <button onClick={quitarMedia} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {subiendoMedia && (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-400">Subiendo archivo...</p>
+                <Progress value={undefined} className="h-1.5 animate-pulse" />
+              </div>
+            )}
+
+            <input
+              ref={refInputArchivo}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+              className="hidden"
+              onChange={seleccionarArchivo}
+            />
+
+            <div className="flex gap-2 justify-between items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => refInputArchivo.current?.click()}
+                className="text-gray-500 hover:text-[#0F172A] gap-1.5"
+                disabled={subiendoMedia || enviandoNovedad}
+              >
+                <Paperclip className="w-4 h-4" />
+                <span className="text-xs">Adjuntar foto/video</span>
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { quitarMedia(); setTextoNovedad(""); setMostrarCrearNovedad(false) }}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                  onClick={publicarNovedad}
+                  disabled={!textoNovedad.trim() || enviandoNovedad || subiendoMedia}
+                >
+                  {(enviandoNovedad || subiendoMedia) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Publicar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── DIÁLOGO: Validar competencias ───────────────────── */}
       <Dialog open={!!estudianteValidar} onOpenChange={abierto => { if (!abierto) setEstudianteValidar(null) }}>
