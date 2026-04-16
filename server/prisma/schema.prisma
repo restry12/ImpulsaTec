@@ -229,5 +229,5 @@ model Mensaje {
   leido      Boolean  @default(false)
   creadoEn   DateTime @default(now())
 
-  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 }
