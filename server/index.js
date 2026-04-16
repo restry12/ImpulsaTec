@@ -12,6 +12,7 @@ const rutasOfertas = require('./rutas/ofertas')
 const rutasContactos = require('./rutas/contactos')
 const rutasPosts = require('./rutas/posts')
 const rutasMensajes = require('./rutas/mensajes')
+const rutasConversaciones = require('./rutas/conversaciones')
 
 const app = express()
 
@@ -31,6 +32,7 @@ app.use('/api/ofertas', rutasOfertas)
 app.use('/api/contactos', rutasContactos)
 app.use('/api/posts', rutasPosts)
 app.use('/api/mensajes', rutasMensajes)
+app.use('/api/conversaciones', rutasConversaciones)
 
 app.listen(3000, () => {
   console.log('Servidor en puerto 3000')
