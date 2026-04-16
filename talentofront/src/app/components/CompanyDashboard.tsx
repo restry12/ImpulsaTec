@@ -174,18 +174,16 @@ export function CompanyDashboard() {
       .catch(() => {})
 
     // Cargar count de mensajes no leídos del colegio
-    if (sesion) {
-      fetch(`${API_URL}/api/mensajes`, {
-        headers: { Authorization: `Bearer ${sesion.token}` },
+    fetch(`${API_URL}/api/mensajes`, {
+      headers: { Authorization: `Bearer ${sesion.token}` },
+    })
+      .then(res => res.json())
+      .then((datos: { autorTipo: string; leido: boolean }[]) => {
+        if (Array.isArray(datos)) {
+          setMensajesNoLeidos(datos.filter(m => m.autorTipo === 'ADMINISTRADOR' && !m.leido).length)
+        }
       })
-        .then(res => res.json())
-        .then((datos: { autorTipo: string; leido: boolean }[]) => {
-          if (Array.isArray(datos)) {
-            setMensajesNoLeidos(datos.filter(m => m.autorTipo === 'ADMINISTRADOR' && !m.leido).length)
-          }
-        })
-        .catch(() => {})
-    }
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -1288,11 +1286,12 @@ export function CompanyDashboard() {
                 onClick={async () => {
                   if (!sesion || !estudianteSel) return
                   try {
-                    await fetch(`${API_URL}/api/contactos`, {
+                    const res = await fetch(`${API_URL}/api/contactos`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sesion.token}` },
                       body: JSON.stringify({ estudianteId: estudianteSel.id }),
                     })
+                    if (!res.ok) throw new Error()
                     toast.success("Contacto registrado correctamente")
                     setEstudianteSel(null)
                   } catch {
