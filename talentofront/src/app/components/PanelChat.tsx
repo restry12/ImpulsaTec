@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { X, Send, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Button } from './ui/button'
 
@@ -78,6 +79,7 @@ export function PanelChat({ abierto, onCerrar, empresaId, autorActual, nombreCon
     cargarMensajes().then(() => {
       setCargando(false)
       marcarLeidos()
+      refInput.current?.focus()
     })
 
     intervalRef.current = setInterval(() => {
@@ -117,7 +119,9 @@ export function PanelChat({ abierto, onCerrar, empresaId, autorActual, nombreCon
         setTexto('')
         refInput.current?.focus()
       }
-    } catch {}
+    } catch {
+      toast.error('No se pudo enviar el mensaje')
+    }
     setEnviando(false)
   }
 
@@ -130,6 +134,7 @@ export function PanelChat({ abierto, onCerrar, empresaId, autorActual, nombreCon
 
   const inicialesContraparte = nombreContraparte
     .split(' ')
+    .filter(p => p.length > 0)
     .slice(0, 2)
     .map(p => p[0])
     .join('')
