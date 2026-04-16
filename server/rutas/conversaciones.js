@@ -182,9 +182,10 @@ router.post('/', verificarToken, async (req, res) => {
         conv = await prisma.conversacion.create({
           data: { tipo: 'EMPRESA_ESTUDIANTE', empresaId: empresa.id, estudiante1Id: estudianteIdParsed },
         })
+        return res.status(201).json({ id: conv.id })
       }
 
-      return res.status(201).json({ id: conv.id })
+      return res.json({ id: conv.id })
     }
 
     if (req.usuario.rol === 'ESTUDIANTE') {
@@ -207,9 +208,10 @@ router.post('/', verificarToken, async (req, res) => {
         conv = await prisma.conversacion.create({
           data: { tipo: 'ESTUDIANTE_ESTUDIANTE', estudiante1Id: est1Id, estudiante2Id: est2Id },
         })
+        return res.status(201).json({ id: conv.id })
       }
 
-      return res.status(201).json({ id: conv.id })
+      return res.json({ id: conv.id })
     }
 
     return res.status(403).json({ error: 'Acceso no permitido' })
