@@ -78,6 +78,9 @@ model Estudiante {
   contactos       Contacto[]
   posts           Post[]
   comentarios      Comentario[]
+  conversaciones1     Conversacion[]  @relation("conv_est1")
+  conversaciones2     Conversacion[]  @relation("conv_est2")
+  mensajesDirectosEmitidos MensajeDirecto[] @relation("dm_emisor_estudiante")
 }
 
 // ─── HABILIDADES Y CERTIFICACIONES ───────────────────────────
@@ -119,6 +122,8 @@ model Empresa {
   posts       Post[]
   comentarios      Comentario[]
   mensajes    Mensaje[]
+  conversaciones      Conversacion[]
+  mensajesDirectosEmitidos MensajeDirecto[] @relation("dm_emisor_empresa")
 }
 
 // ─── OFERTAS DE PASANTÍA ─────────────────────────────────────
@@ -230,4 +235,40 @@ model Mensaje {
   creadoEn   DateTime @default(now())
 
   empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+}
+
+// ─── CONVERSACIONES DIRECTAS (DMs) ───────────────────────────
+
+enum TipoConversacion {
+  EMPRESA_ESTUDIANTE
+  ESTUDIANTE_ESTUDIANTE
+}
+
+model Conversacion {
+  id            Int              @id @default(autoincrement())
+  tipo          TipoConversacion
+  empresaId     Int?
+  estudiante1Id Int
+  estudiante2Id Int?
+  creadoEn      DateTime         @default(now())
+
+  empresa       Empresa?    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  estudiante1   Estudiante  @relation("conv_est1", fields: [estudiante1Id], references: [id])
+  estudiante2   Estudiante? @relation("conv_est2", fields: [estudiante2Id], references: [id])
+  mensajes      MensajeDirecto[]
+}
+
+model MensajeDirecto {
+  id                 Int      @id @default(autoincrement())
+  conversacionId     Int
+  contenido          String
+  autorTipo          Rol
+  emisorEmpresaId    Int?
+  emisorEstudianteId Int?
+  leido              Boolean  @default(false)
+  creadoEn           DateTime @default(now())
+
+  conversacion       Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  emisorEmpresa      Empresa?     @relation("dm_emisor_empresa", fields: [emisorEmpresaId], references: [id])
+  emisorEstudiante   Estudiante?  @relation("dm_emisor_estudiante", fields: [emisorEstudianteId], references: [id])
 }
