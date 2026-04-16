@@ -25,8 +25,11 @@ router.get('/', verificarToken, async (req, res) => {
       const { empresaId } = req.query
 
       if (empresaId) {
+        const parsedEmpresaId = parseInt(empresaId)
+        if (isNaN(parsedEmpresaId)) return res.status(400).json({ error: 'empresaId debe ser un número' })
+
         const mensajes = await prisma.mensaje.findMany({
-          where: { empresaId: parseInt(empresaId) },
+          where: { empresaId: parsedEmpresaId },
           orderBy: { creadoEn: 'asc' },
         })
         return res.json(mensajes)
@@ -50,7 +53,13 @@ router.get('/', verificarToken, async (req, res) => {
             },
           },
         },
-        orderBy: { mensajes: { _count: 'desc' } },
+      })
+
+      // Ordenar por recencia (último mensaje)
+      empresasConMensajes.sort((a, b) => {
+        const fechaA = a.mensajes[0]?.creadoEn ?? new Date(0)
+        const fechaB = b.mensajes[0]?.creadoEn ?? new Date(0)
+        return new Date(fechaB).getTime() - new Date(fechaA).getTime()
       })
 
       return res.json(empresasConMensajes)
@@ -89,7 +98,7 @@ router.post('/', verificarToken, async (req, res) => {
     }
 
     if (req.usuario.rol === 'ADMINISTRADOR') {
-      if (!empresaId) return res.status(400).json({ error: 'empresaId es requerido para ADMINISTRADOR' })
+      if (!empresaId || isNaN(parseInt(empresaId))) return res.status(400).json({ error: 'empresaId debe ser un número válido' })
 
       const mensaje = await prisma.mensaje.create({
         data: {
@@ -114,6 +123,7 @@ router.post('/', verificarToken, async (req, res) => {
 // ADMINISTRADOR → marca leídos los mensajes con autorTipo = EMPRESA del hilo indicado
 router.patch('/leido/:empresaId', verificarToken, async (req, res) => {
   const empresaId = parseInt(req.params.empresaId)
+  if (isNaN(empresaId)) return res.status(400).json({ error: 'empresaId debe ser un número' })
 
   try {
     if (req.usuario.rol === 'EMPRESA') {
