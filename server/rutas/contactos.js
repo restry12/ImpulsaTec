@@ -45,38 +45,43 @@ router.post('/', verificarToken, async (req, res) => {
     if (!empresa) return res.status(404).json({ error: 'Perfil no encontrado' })
 
     const estudianteIdParsed = parseInt(estudianteId)
-
-    // Crear contacto
-    const contacto = await prisma.contacto.create({
-      data: {
-        empresaId: empresa.id,
-        estudianteId: estudianteIdParsed,
-        mensaje: mensaje?.trim() || null,
-      },
-    })
-
-    // Crear o reutilizar hilo DM
-    let conv = await prisma.conversacion.findFirst({
-      where: { tipo: 'EMPRESA_ESTUDIANTE', empresaId: empresa.id, estudiante1Id: estudianteIdParsed },
-    })
-
-    if (!conv) {
-      conv = await prisma.conversacion.create({
-        data: { tipo: 'EMPRESA_ESTUDIANTE', empresaId: empresa.id, estudiante1Id: estudianteIdParsed },
-      })
+    if (isNaN(estudianteIdParsed)) {
+      return res.status(400).json({ error: 'estudianteId debe ser un número válido' })
     }
 
-    // Si hay mensaje inicial, crearlo como MensajeDirecto
-    if (mensaje?.trim()) {
-      await prisma.mensajeDirecto.create({
+    const { contacto, conv } = await prisma.$transaction(async (tx) => {
+      const contacto = await tx.contacto.create({
         data: {
-          conversacionId: conv.id,
-          contenido: mensaje.trim(),
-          autorTipo: 'EMPRESA',
-          emisorEmpresaId: empresa.id,
+          empresaId: empresa.id,
+          estudianteId: estudianteIdParsed,
+          mensaje: mensaje?.trim() || null,
         },
       })
-    }
+
+      // Crear o reutilizar hilo DM
+      let conv = await tx.conversacion.findFirst({
+        where: { tipo: 'EMPRESA_ESTUDIANTE', empresaId: empresa.id, estudiante1Id: estudianteIdParsed },
+      })
+      if (!conv) {
+        conv = await tx.conversacion.create({
+          data: { tipo: 'EMPRESA_ESTUDIANTE', empresaId: empresa.id, estudiante1Id: estudianteIdParsed },
+        })
+      }
+
+      // Si hay mensaje inicial, crearlo como MensajeDirecto
+      if (mensaje?.trim()) {
+        await tx.mensajeDirecto.create({
+          data: {
+            conversacionId: conv.id,
+            contenido: mensaje.trim(),
+            autorTipo: 'EMPRESA',
+            emisorEmpresaId: empresa.id,
+          },
+        })
+      }
+
+      return { contacto, conv }
+    })
 
     res.status(201).json({ contacto, conversacionId: conv.id })
   } catch (error) {
