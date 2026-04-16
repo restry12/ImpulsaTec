@@ -118,6 +118,7 @@ model Empresa {
   contactos   Contacto[]
   posts       Post[]
   comentarios      Comentario[]
+  mensajes    Mensaje[]
 }
 
 // ─── OFERTAS DE PASANTÍA ─────────────────────────────────────
@@ -216,4 +217,17 @@ model Comentario {
   estudiante      Estudiante?    @relation(fields: [estudianteId], references: [id])
   empresa         Empresa?       @relation(fields: [empresaId], references: [id])
   administrador   Administrador? @relation(fields: [administradorId], references: [id])
+}
+
+// ─── MENSAJES EMPRESA ↔ COLEGIO ──────────────────────────
+
+model Mensaje {
+  id         Int      @id @default(autoincrement())
+  empresaId  Int
+  contenido  String
+  autorTipo  Rol
+  leido      Boolean  @default(false)
+  creadoEn   DateTime @default(now())
+
+  empresa    Empresa  @relation(fields: [empresaId], references: [id])
 }
