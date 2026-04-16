@@ -18,7 +18,7 @@ async function esParticipante(conv, req) {
 }
 
 // Función auxiliar: construye el objeto contraparte según tipo y rol del autenticado
-function buildContraparte(conv, rolActual, idActual) {
+function construirContraparte(conv, rolActual, idActual) {
   if (conv.tipo === 'EMPRESA_ESTUDIANTE') {
     if (rolActual === 'EMPRESA') {
       return { id: conv.estudiante1.id, nombre: `${conv.estudiante1.nombre} ${conv.estudiante1.apellido}`, logoUrl: conv.estudiante1.fotoUrl }
@@ -55,7 +55,7 @@ router.get('/', verificarToken, async (req, res) => {
       return res.json(conversaciones.map(conv => ({
         id: conv.id,
         tipo: conv.tipo,
-        contraparte: buildContraparte(conv, 'EMPRESA', empresa.id),
+        contraparte: construirContraparte(conv, 'EMPRESA', empresa.id),
         ultimoMensaje: conv.mensajes[0] ? { contenido: conv.mensajes[0].contenido, creadoEn: conv.mensajes[0].creadoEn } : null,
         noLeidos: conv._count.mensajes,
       })))
@@ -105,14 +105,14 @@ router.get('/', verificarToken, async (req, res) => {
         ...convEmpresa.map(conv => ({
           id: conv.id,
           tipo: conv.tipo,
-          contraparte: buildContraparte(conv, 'ESTUDIANTE', estudiante.id),
+          contraparte: construirContraparte(conv, 'ESTUDIANTE', estudiante.id),
           ultimoMensaje: conv.mensajes[0] ? { contenido: conv.mensajes[0].contenido, creadoEn: conv.mensajes[0].creadoEn } : null,
           noLeidos: conv._count.mensajes,
         })),
         ...convEstudiante.map(conv => ({
           id: conv.id,
           tipo: conv.tipo,
-          contraparte: buildContraparte(conv, 'ESTUDIANTE', estudiante.id),
+          contraparte: construirContraparte(conv, 'ESTUDIANTE', estudiante.id),
           ultimoMensaje: conv.mensajes[0] ? { contenido: conv.mensajes[0].contenido, creadoEn: conv.mensajes[0].creadoEn } : null,
           noLeidos: conv._count.mensajes,
         })),
