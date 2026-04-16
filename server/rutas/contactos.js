@@ -44,15 +44,41 @@ router.post('/', verificarToken, async (req, res) => {
     const empresa = await prisma.empresa.findUnique({ where: { usuarioId: req.usuario.id } })
     if (!empresa) return res.status(404).json({ error: 'Perfil no encontrado' })
 
+    const estudianteIdParsed = parseInt(estudianteId)
+
+    // Crear contacto
     const contacto = await prisma.contacto.create({
       data: {
         empresaId: empresa.id,
-        estudianteId: parseInt(estudianteId),
+        estudianteId: estudianteIdParsed,
         mensaje: mensaje?.trim() || null,
       },
     })
 
-    res.status(201).json(contacto)
+    // Crear o reutilizar hilo DM
+    let conv = await prisma.conversacion.findFirst({
+      where: { tipo: 'EMPRESA_ESTUDIANTE', empresaId: empresa.id, estudiante1Id: estudianteIdParsed },
+    })
+
+    if (!conv) {
+      conv = await prisma.conversacion.create({
+        data: { tipo: 'EMPRESA_ESTUDIANTE', empresaId: empresa.id, estudiante1Id: estudianteIdParsed },
+      })
+    }
+
+    // Si hay mensaje inicial, crearlo como MensajeDirecto
+    if (mensaje?.trim()) {
+      await prisma.mensajeDirecto.create({
+        data: {
+          conversacionId: conv.id,
+          contenido: mensaje.trim(),
+          autorTipo: 'EMPRESA',
+          emisorEmpresaId: empresa.id,
+        },
+      })
+    }
+
+    res.status(201).json({ contacto, conversacionId: conv.id })
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: 'Error al registrar contacto' })
