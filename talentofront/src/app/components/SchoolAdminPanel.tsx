@@ -20,6 +20,7 @@ import { Progress } from "./ui/progress";
 import { Textarea } from "./ui/textarea";
 import { subirMedia } from "../../lib/supabase";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
+import { PanelChat } from './PanelChat'
 
 type Habilidad = { id: number; nombre: string; validada: boolean }
 type Certificacion = { id: number; nombre: string; institucion: string | null; validada: boolean }
@@ -79,6 +80,14 @@ type EmpresaAdmin = {
   ofertas: { id: number; titulo: string; especialidad: string; creadoEn: string }[]
 }
 
+type HiloEmpresa = {
+  id: number
+  nombre: string
+  logoUrl: string | null
+  mensajes: { contenido: string; autorTipo: string; creadoEn: string }[]
+  _count: { mensajes: number }
+}
+
 const API_URL = import.meta.env.VITE_API_URL
 
 const gradientesAvatar = [
@@ -96,6 +105,7 @@ const seccionesMenu = [
   { icon: Briefcase, label: "Postulaciones", color: "text-amber-600" },
   { icon: Building2, label: "Empresas", color: "text-indigo-600" },
   { icon: Newspaper, label: "Novedades", color: "text-purple-600" },
+  { icon: MessageSquare, label: "Mensajes", color: "text-sky-600" },
   { icon: BarChart3, label: "Métricas", color: "text-rose-600" },
 ]
 
@@ -133,6 +143,16 @@ export function SchoolAdminPanel() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [subiendoMedia, setSubiendoMedia] = useState(false)
   const refInputArchivo = useRef<HTMLInputElement>(null)
+
+  // Sección Mensajes
+  const [hilos, setHilos] = useState<HiloEmpresa[]>([])
+  const [cargandoHilos, setCargandoHilos] = useState(false)
+  const [hilosCargados, setHilosCargados] = useState(false)
+  const [empresaChatId, setEmpresaChatId] = useState<number | null>(null)
+  const [empresaChatNombre, setEmpresaChatNombre] = useState('')
+  const [empresaChatLogo, setEmpresaChatLogo] = useState<string | null>(null)
+  const [panelChatAbierto, setPanelChatAbierto] = useState(false)
+  const [totalMensajesNoLeidos, setTotalMensajesNoLeidos] = useState(0)
 
   // Comentarios inline por novedad
   const [comentariosAbiertos, setComentariosAbiertos] = useState<Set<number>>(new Set())
@@ -211,6 +231,40 @@ export function SchoolAdminPanel() {
       })
       .catch(() => setCargandoEmpresas(false))
   }, [seccionActiva])
+
+  // Carga hilos de mensajes cuando se activa la sección
+  useEffect(() => {
+    if (seccionActiva !== 'Mensajes' || !sesion || hilosCargados) return
+    setCargandoHilos(true)
+    fetch(`${API_URL}/api/mensajes`, {
+      headers: { Authorization: `Bearer ${sesion.token}` },
+    })
+      .then(res => res.json())
+      .then((datos: HiloEmpresa[]) => {
+        if (Array.isArray(datos)) {
+          setHilos(datos)
+          setTotalMensajesNoLeidos(datos.reduce((acc, h) => acc + h._count.mensajes, 0))
+        }
+        setHilosCargados(true)
+        setCargandoHilos(false)
+      })
+      .catch(() => setCargandoHilos(false))
+  }, [seccionActiva, sesion, hilosCargados])
+
+  // Cargar count de no leídos al montar (para el badge del menú)
+  useEffect(() => {
+    if (!sesion) return
+    fetch(`${API_URL}/api/mensajes`, {
+      headers: { Authorization: `Bearer ${sesion.token}` },
+    })
+      .then(res => res.json())
+      .then((datos: HiloEmpresa[]) => {
+        if (Array.isArray(datos)) {
+          setTotalMensajesNoLeidos(datos.reduce((acc, h) => acc + h._count.mensajes, 0))
+        }
+      })
+      .catch(() => {})
+  }, [sesion])
 
   const actualizarEstadoPostulacion = async (postulacionId: number, nuevoEstado: PostulacionAdmin["estado"]) => {
     if (!sesion) return
@@ -547,7 +601,12 @@ export function SchoolAdminPanel() {
                 <div className={`p-1 rounded-lg ${seccionActiva === item.label ? "bg-white/20" : "bg-gray-100"}`}>
                   <item.icon className={`w-4 h-4 ${seccionActiva === item.label ? "text-white" : item.color}`} />
                 </div>
-                <span>{item.label}</span>
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.label === 'Mensajes' && totalMensajesNoLeidos > 0 && (
+                  <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                    {totalMensajesNoLeidos}
+                  </span>
+                )}
               </motion.button>
             ))}
           </nav>
@@ -568,6 +627,7 @@ export function SchoolAdminPanel() {
               {seccionActiva === "Postulaciones" && "Gestiona las postulaciones de pasantía"}
               {seccionActiva === "Empresas" && "Empresas registradas en la plataforma"}
               {seccionActiva === "Novedades" && "Anuncios y novedades del colegio"}
+              {seccionActiva === "Mensajes" && "Conversaciones con empresas de la plataforma"}
               {seccionActiva === "Métricas" && "Estadísticas y reportes"}
             </p>
           </div>
@@ -997,8 +1057,89 @@ export function SchoolAdminPanel() {
             </div>
           )}
 
+          {/* ══ SECCIÓN: MENSAJES ════════════════════════════ */}
+          {seccionActiva === "Mensajes" && (
+            <div>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Mensajes de Empresas</h2>
+                  <p className="text-sm text-gray-500">Conversaciones con empresas de la plataforma</p>
+                </div>
+              </div>
+
+              {cargandoHilos && (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                </div>
+              )}
+
+              {hilosCargados && hilos.length === 0 && (
+                <div className="text-center py-16 text-gray-400">
+                  <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-base font-medium">Sin mensajes aún</p>
+                  <p className="text-sm mt-1">Las empresas que te escriban aparecerán aquí</p>
+                </div>
+              )}
+
+              {hilosCargados && hilos.length > 0 && (
+                <div className="space-y-2">
+                  {hilos.map(hilo => {
+                    const ultimoMensaje = hilo.mensajes[0]
+                    const tieneNoLeidos = hilo._count.mensajes > 0
+                    return (
+                      <button
+                        key={hilo.id}
+                        onClick={() => {
+                          setEmpresaChatId(hilo.id)
+                          setEmpresaChatNombre(hilo.nombre)
+                          setEmpresaChatLogo(hilo.logoUrl)
+                          setPanelChatAbierto(true)
+                          // Resetear no leídos de este hilo localmente
+                          setHilos(prev => prev.map(h =>
+                            h.id === hilo.id ? { ...h, _count: { mensajes: 0 } } : h
+                          ))
+                          setTotalMensajesNoLeidos(prev => Math.max(0, prev - hilo._count.mensajes))
+                        }}
+                        className="w-full flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:border-[#F97316]/30 hover:shadow-sm transition-all text-left"
+                      >
+                        <Avatar className="w-10 h-10 shrink-0">
+                          {hilo.logoUrl && <AvatarImage src={hilo.logoUrl} />}
+                          <AvatarFallback className={`bg-gradient-to-br ${gradienteAvatar(hilo.nombre)} text-white font-bold text-sm`}>
+                            {hilo.nombre[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-sm truncate ${tieneNoLeidos ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                              {hilo.nombre}
+                            </p>
+                            {ultimoMensaje && (
+                              <p className="text-xs text-gray-400 shrink-0">
+                                {new Date(ultimoMensaje.creadoEn).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+                              </p>
+                            )}
+                          </div>
+                          {ultimoMensaje && (
+                            <p className="text-xs text-gray-400 truncate mt-0.5">
+                              {ultimoMensaje.autorTipo === 'ADMINISTRADOR' ? 'Tú: ' : ''}{ultimoMensaje.contenido}
+                            </p>
+                          )}
+                        </div>
+                        {tieneNoLeidos && (
+                          <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none shrink-0">
+                            {hilo._count.mensajes}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── SECCIÓN: Estudiantes / Validaciones / Dashboard ─ */}
-          {seccionActiva !== "Postulaciones" && seccionActiva !== "Empresas" && seccionActiva !== "Novedades" && (
+          {seccionActiva !== "Postulaciones" && seccionActiva !== "Empresas" && seccionActiva !== "Novedades" && seccionActiva !== "Mensajes" && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1350,6 +1491,19 @@ export function SchoolAdminPanel() {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* ── PANEL: Chat con empresa ──────────────────────────── */}
+      {sesion && empresaChatId !== null && (
+        <PanelChat
+          abierto={panelChatAbierto}
+          onCerrar={() => { setPanelChatAbierto(false); setEmpresaChatId(null) }}
+          empresaId={empresaChatId}
+          autorActual="ADMINISTRADOR"
+          nombreContraparte={empresaChatNombre}
+          logoContraparte={empresaChatLogo}
+          token={sesion.token}
+        />
+      )}
     </div>
   )
 }
