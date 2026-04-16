@@ -1105,7 +1105,7 @@ export function SchoolAdminPanel() {
                         <Avatar className="w-10 h-10 shrink-0">
                           {hilo.logoUrl && <AvatarImage src={hilo.logoUrl} />}
                           <AvatarFallback className={`bg-gradient-to-br ${gradienteAvatar(hilo.nombre)} text-white font-bold text-sm`}>
-                            {hilo.nombre[0]}
+                            {hilo.nombre[0] ?? '?'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
