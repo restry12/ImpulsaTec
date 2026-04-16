@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { PanelChat } from './PanelChat'
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bell, Search, MessageSquare, Building2, FileText, Bookmark,
@@ -98,6 +99,13 @@ type OfertaEmpresa = {
   _count: { postulaciones: number }
 }
 
+type PostulanteOferta = {
+  id: number
+  estado: string
+  creadoEn: string
+  estudiante: Estudiante
+}
+
 export function CompanyDashboard() {
   const { sesion, cerrarSesion } = useAuth()
   const navegar = useNavigate()
@@ -109,13 +117,6 @@ export function CompanyDashboard() {
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   // Perfil estudiante seleccionado
   const [estudianteSel, setEstudianteSel] = useState<Estudiante | null>(null)
-  // ID del estudiante a contactar (se captura antes de cerrar el dialog de perfil)
-  const [estudianteContactoId, setEstudianteContactoId] = useState<number | null>(null)
-  // Dialog contactar estudiante
-  const [mostrarChat, setMostrarChat] = useState(false)
-  const [mensajeChat, setMensajeChat] = useState("")
-  const [chatEnviado, setChatEnviado] = useState(false)
-  const [enviandoContacto, setEnviandoContacto] = useState(false)
   // Editar perfil empresa
   const [mostrarEditarPerfil, setMostrarEditarPerfil] = useState(false)
   const [editDesc, setEditDesc] = useState("")
@@ -134,6 +135,13 @@ export function CompanyDashboard() {
   const [nuevaEspecialidad, setNuevaEspecialidad] = useState("")
   const [guardandoOferta, setGuardandoOferta] = useState(false)
   const [toggling, setToggling] = useState<number | null>(null)
+  // Chat con el colegio
+  const [panelChatAbierto, setPanelChatAbierto] = useState(false)
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
+  // Ver postulantes de una oferta
+  const [ofertaPostulantesId, setOfertaPostulantesId] = useState<number | null>(null)
+  const [postulantes, setPostulantes] = useState<PostulanteOferta[]>([])
+  const [cargandoPostulantes, setCargandoPostulantes] = useState(false)
 
   // Feed compartido
   const [posts, setPosts] = useState<PostFeed[]>([])
@@ -164,6 +172,20 @@ export function CompanyDashboard() {
       .then(res => res.json())
       .then(datos => setPerfil(datos))
       .catch(() => {})
+
+    // Cargar count de mensajes no leídos del colegio
+    if (sesion) {
+      fetch(`${API_URL}/api/mensajes`, {
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+        .then(res => res.json())
+        .then((datos: { autorTipo: string; leido: boolean }[]) => {
+          if (Array.isArray(datos)) {
+            setMensajesNoLeidos(datos.filter(m => m.autorTipo === 'ADMINISTRADOR' && !m.leido).length)
+          }
+        })
+        .catch(() => {})
+    }
   }, [])
 
   useEffect(() => {
@@ -204,32 +226,6 @@ export function CompanyDashboard() {
   const limpiarFiltros = () => {
     setBusqueda("")
     setEspecialidadFiltro("")
-  }
-
-  const enviarContacto = async () => {
-    if (!sesion || !mensajeChat.trim() || !estudianteContactoId) return
-    setEnviandoContacto(true)
-    try {
-      const res = await fetch(`${API_URL}/api/contactos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sesion.token}` },
-        body: JSON.stringify({ estudianteId: estudianteContactoId, mensaje: mensajeChat.trim() }),
-      })
-      if (res.ok) {
-        setChatEnviado(true)
-        toast.success("Contacto enviado correctamente")
-        setTimeout(() => {
-          setMostrarChat(false)
-          setChatEnviado(false)
-          setMensajeChat("")
-          setEstudianteContactoId(null)
-        }, 1800)
-      }
-    } catch {
-      // Error de red
-    } finally {
-      setEnviandoContacto(false)
-    }
   }
 
   const abrirEditarPerfil = () => {
@@ -326,6 +322,24 @@ export function CompanyDashboard() {
       // Error de red
     } finally {
       setToggling(null)
+    }
+  }
+
+  const verPostulantes = async (ofertaId: number) => {
+    if (!sesion) return
+    setOfertaPostulantesId(ofertaId)
+    setCargandoPostulantes(true)
+    setPostulantes([])
+    try {
+      const res = await fetch(`${API_URL}/api/postulaciones/oferta/${ofertaId}`, {
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+      const datos = await res.json()
+      setPostulantes(Array.isArray(datos) ? datos : [])
+    } catch {
+      toast.error('Error al cargar postulantes')
+    } finally {
+      setCargandoPostulantes(false)
     }
   }
 
@@ -499,15 +513,22 @@ export function CompanyDashboard() {
                 <Home className="w-4 h-4" />
                 <span className="text-sm">Feed</span>
               </button>
-              {[
-                { icon: Bookmark, label: "Guardados" },
-                { icon: MessageSquare, label: "Mensajes" },
-              ].map(({ icon: Icon, label }) => (
-                <button key={label} className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors">
-                  <Icon className="w-4 h-4" />
-                  <span>{label}</span>
-                </button>
-              ))}
+              <button className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors">
+                <Bookmark className="w-4 h-4" />
+                <span>Guardados</span>
+              </button>
+              <button
+                onClick={() => { setPanelChatAbierto(true); setMensajesNoLeidos(0) }}
+                className="relative flex items-center gap-1.5 text-white/70 hover:text-white transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Mensajes</span>
+                {mensajesNoLeidos > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                    {mensajesNoLeidos}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -597,7 +618,7 @@ export function CompanyDashboard() {
                 <CardContent className="p-4">
                   <button
                     className="w-full flex items-center gap-2.5 justify-center text-[#0F172A] hover:text-[#2563EB] py-1 transition-colors"
-                    onClick={() => setMostrarChat(true)}
+                    onClick={() => { setPanelChatAbierto(true); setMensajesNoLeidos(0) }}
                   >
                     <MessageSquare className="w-4 h-4" />
                     <span className="text-sm font-medium">Chat con el colegio</span>
@@ -892,6 +913,17 @@ export function CompanyDashboard() {
                               <Users className="w-3.5 h-3.5" />
                               <span>{oferta._count.postulaciones} postulación{oferta._count.postulaciones !== 1 ? "es" : ""}</span>
                             </div>
+
+                            {oferta._count.postulaciones > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full h-8 text-xs rounded-lg gap-1.5 border-[#DBEAFE] text-[#2563EB] hover:bg-[#DBEAFE]"
+                                onClick={() => verPostulantes(oferta.id)}
+                              >
+                                <Users className="w-3.5 h-3.5" /> Ver postulantes
+                              </Button>
+                            )}
 
                             <Button
                               variant="outline"
@@ -1253,10 +1285,19 @@ export function CompanyDashboard() {
               {/* Botón contactar */}
               <Button
                 className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl"
-                onClick={() => {
-                  setEstudianteContactoId(estudianteSel.id)
-                  setEstudianteSel(null)
-                  setMostrarChat(true)
+                onClick={async () => {
+                  if (!sesion || !estudianteSel) return
+                  try {
+                    await fetch(`${API_URL}/api/contactos`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sesion.token}` },
+                      body: JSON.stringify({ estudianteId: estudianteSel.id }),
+                    })
+                    toast.success("Contacto registrado correctamente")
+                    setEstudianteSel(null)
+                  } catch {
+                    toast.error("Error al registrar el contacto")
+                  }
                 }}
               >
                 <Mail className="w-4 h-4 mr-2" />
@@ -1265,51 +1306,6 @@ export function CompanyDashboard() {
             </div>
           </DialogContent>
         )}
-      </Dialog>
-
-      {/* ── DIÁLOGO: Contactar estudiante ───────────────────── */}
-      <Dialog open={mostrarChat} onOpenChange={abierto => { if (!abierto) { setMostrarChat(false); setMensajeChat(""); setChatEnviado(false); setEstudianteContactoId(null) } }}>
-        <DialogContent className="max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Contactar estudiante</DialogTitle>
-          </DialogHeader>
-          {chatEnviado ? (
-            <div className="py-8 text-center space-y-2">
-              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-6 h-6 text-emerald-600" />
-              </div>
-              <p className="font-semibold text-gray-900">Contacto registrado</p>
-              <p className="text-sm text-gray-500">El colegio coordinará el contacto pronto.</p>
-            </div>
-          ) : (
-            <div className="space-y-4 pt-2">
-              <div className="space-y-1">
-                <Label htmlFor="mensajeEmpresa">Mensaje (opcional)</Label>
-                <Textarea
-                  id="mensajeEmpresa"
-                  placeholder="Describe la oportunidad o el motivo del contacto..."
-                  rows={4}
-                  value={mensajeChat}
-                  onChange={e => setMensajeChat(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setMostrarChat(false); setMensajeChat(""); setEstudianteContactoId(null) }} disabled={enviandoContacto}>
-                  Cancelar
-                </Button>
-                <Button
-                  className="flex-1 bg-[#0F172A] hover:bg-[#2563EB] text-white"
-                  onClick={enviarContacto}
-                  disabled={enviandoContacto}
-                >
-                  {enviandoContacto ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />}
-                  Enviar contacto
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
       </Dialog>
 
       {/* ── DIÁLOGO: Editar perfil empresa ──────────────────── */}
@@ -1363,6 +1359,60 @@ export function CompanyDashboard() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DIÁLOGO: Postulantes de una oferta ─────────────── */}
+      <Dialog open={ofertaPostulantesId !== null} onOpenChange={abierto => { if (!abierto) { setOfertaPostulantesId(null); setPostulantes([]) } }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Postulantes</DialogTitle>
+          </DialogHeader>
+          {cargandoPostulantes ? (
+            <div className="py-10 flex justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : postulantes.length === 0 ? (
+            <div className="py-10 text-center text-gray-400">
+              <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Sin postulantes aún</p>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              {postulantes.map(p => (
+                <div key={p.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                  <Avatar className="w-10 h-10 shrink-0">
+                    {p.estudiante.fotoUrl && <AvatarImage src={p.estudiante.fotoUrl} />}
+                    <AvatarFallback className={`bg-gradient-to-br ${gradienteAvatar(p.estudiante.nombre)} text-white font-bold text-sm`}>
+                      {p.estudiante.nombre[0]}{p.estudiante.apellido[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{p.estudiante.nombre} {p.estudiante.apellido}</p>
+                    <p className="text-xs text-gray-500">{p.estudiante.especialidad}</p>
+                    {p.estudiante.habilidades.filter(h => h.validada).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {p.estudiante.habilidades.filter(h => h.validada).slice(0, 3).map(h => (
+                          <span key={h.id} className="text-xs bg-[#DBEAFE] text-[#0F172A] px-2 py-0.5 rounded-full">{h.nombre}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs shrink-0"
+                    onClick={() => {
+                      setEstudianteSel(p.estudiante)
+                      setOfertaPostulantesId(null)
+                    }}
+                  >
+                    Ver perfil
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1465,6 +1515,18 @@ export function CompanyDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── PANEL: Chat con el Colegio ──────────────────────── */}
+      {sesion && perfil && (
+        <PanelChat
+          abierto={panelChatAbierto}
+          onCerrar={() => setPanelChatAbierto(false)}
+          empresaId={perfil.id}
+          autorActual="EMPRESA"
+          nombreContraparte="Colegio Cardenal José María Caro"
+          token={sesion.token}
+        />
+      )}
     </div>
   )
 }
