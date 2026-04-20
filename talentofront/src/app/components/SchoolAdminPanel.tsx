@@ -3,7 +3,8 @@ import { motion } from "motion/react";
 import {
   LayoutDashboard, Users, CheckSquare, MessageSquare, BarChart3,
   Bell, Search, Menu, TrendingUp, UserCheck, LogOut, Loader2, Briefcase, Building2, ExternalLink,
-  Newspaper, Paperclip, ImageIcon, X, Plus, MessageCircle, Trash2, MoreVertical, Send
+  Newspaper, Paperclip, ImageIcon, X, Plus, MessageCircle, Trash2, MoreVertical, Send,
+  MessageSquareDashed
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { Button } from "./ui/button";
@@ -21,6 +22,7 @@ import { Textarea } from "./ui/textarea";
 import { subirMedia } from "../../lib/supabase";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
 import { PanelChat } from './PanelChat'
+import { PanelDMs } from './PanelDMs'
 
 type Habilidad = { id: number; nombre: string; validada: boolean }
 type Certificacion = { id: number; nombre: string; institucion: string | null; validada: boolean }
@@ -88,6 +90,14 @@ type HiloEmpresa = {
   _count: { mensajes: number }
 }
 
+type HiloDM = {
+  id: number
+  tipo: 'ADMINISTRADOR_ESTUDIANTE'
+  contraparte: { id: number; nombre: string; logoUrl: string | null }
+  ultimoMensaje: { contenido: string; creadoEn: string } | null
+  noLeidos: number
+}
+
 const API_URL = import.meta.env.VITE_API_URL
 
 const gradientesAvatar = [
@@ -106,6 +116,7 @@ const seccionesMenu = [
   { icon: Building2, label: "Empresas", color: "text-indigo-600" },
   { icon: Newspaper, label: "Novedades", color: "text-purple-600" },
   { icon: MessageSquare, label: "Mensajes", color: "text-sky-600" },
+  { icon: MessageSquareDashed, label: "DMs Estudiantes", color: "text-teal-600" },
   { icon: BarChart3, label: "Métricas", color: "text-rose-600" },
 ]
 
@@ -153,6 +164,15 @@ export function SchoolAdminPanel() {
   const [empresaChatLogo, setEmpresaChatLogo] = useState<string | null>(null)
   const [panelChatAbierto, setPanelChatAbierto] = useState(false)
   const [totalMensajesNoLeidos, setTotalMensajesNoLeidos] = useState(0)
+
+  // DMs con estudiantes
+  const [panelDMsAbierto, setPanelDMsAbierto] = useState(false)
+  const [dmHiloInicial, setDmHiloInicial] = useState<number | null>(null)
+  const [dmsBadge, setDmsBadge] = useState(0)
+  const [dmHilos, setDmHilos] = useState<HiloDM[]>([])
+  const [cargandoDMHilos, setCargandoDMHilos] = useState(false)
+  const [dmHilosCargados, setDmHilosCargados] = useState(false)
+  const [enviandoDM, setEnviandoDM] = useState(false)
 
   // Comentarios inline por novedad
   const [comentariosAbiertos, setComentariosAbiertos] = useState<Set<number>>(new Set())
@@ -264,7 +284,59 @@ export function SchoolAdminPanel() {
         }
       })
       .catch(() => {})
+
+    // Badge inicial de DMs con estudiantes
+    fetch(`${API_URL}/api/conversaciones`, {
+      headers: { Authorization: `Bearer ${sesion.token}` },
+    })
+      .then(res => res.json())
+      .then((datos: HiloDM[]) => {
+        if (Array.isArray(datos)) {
+          setDmsBadge(datos.filter(h => h.noLeidos > 0).length)
+        }
+      })
+      .catch(() => {})
   }, [sesion])
+
+  // Carga DMs cuando se activa esa sección
+  useEffect(() => {
+    if (seccionActiva !== 'DMs Estudiantes' || !sesion || dmHilosCargados) return
+    setCargandoDMHilos(true)
+    fetch(`${API_URL}/api/conversaciones`, {
+      headers: { Authorization: `Bearer ${sesion.token}` },
+    })
+      .then(res => res.json())
+      .then((datos: HiloDM[]) => {
+        if (Array.isArray(datos)) {
+          setDmHilos(datos)
+          setDmsBadge(datos.filter(h => h.noLeidos > 0).length)
+        }
+        setDmHilosCargados(true)
+        setCargandoDMHilos(false)
+      })
+      .catch(() => setCargandoDMHilos(false))
+  }, [seccionActiva, sesion, dmHilosCargados])
+
+  const abrirDMEstudiante = async (estudianteId: number) => {
+    if (!sesion) return
+    setEnviandoDM(true)
+    try {
+      const res = await fetch(`${API_URL}/api/conversaciones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion.token}` },
+        body: JSON.stringify({ estudianteId }),
+      })
+      if (res.ok) {
+        const datos = await res.json()
+        setEstudianteValidar(null)
+        setDmHiloInicial(datos.id)
+        setPanelDMsAbierto(true)
+        // Invalidar caché para que recargue la lista
+        setDmHilosCargados(false)
+      }
+    } catch {}
+    setEnviandoDM(false)
+  }
 
   const actualizarEstadoPostulacion = async (postulacionId: number, nuevoEstado: PostulacionAdmin["estado"]) => {
     if (!sesion) return
@@ -607,6 +679,11 @@ export function SchoolAdminPanel() {
                     {totalMensajesNoLeidos}
                   </span>
                 )}
+                {item.label === 'DMs Estudiantes' && dmsBadge > 0 && (
+                  <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                    {dmsBadge}
+                  </span>
+                )}
               </motion.button>
             ))}
           </nav>
@@ -628,6 +705,7 @@ export function SchoolAdminPanel() {
               {seccionActiva === "Empresas" && "Empresas registradas en la plataforma"}
               {seccionActiva === "Novedades" && "Anuncios y novedades del colegio"}
               {seccionActiva === "Mensajes" && "Conversaciones con empresas de la plataforma"}
+              {seccionActiva === "DMs Estudiantes" && "Mensajes directos con estudiantes"}
               {seccionActiva === "Métricas" && "Estadísticas y reportes"}
             </p>
           </div>
@@ -1138,8 +1216,79 @@ export function SchoolAdminPanel() {
             </div>
           )}
 
+          {/* ── SECCIÓN: DMs Estudiantes ─────────────────────── */}
+          {seccionActiva === "DMs Estudiantes" && (
+            <div>
+              {cargandoDMHilos && (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                </div>
+              )}
+
+              {dmHilosCargados && dmHilos.length === 0 && (
+                <div className="text-center py-16 text-gray-400">
+                  <MessageSquareDashed className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-base font-medium">Sin conversaciones aún</p>
+                  <p className="text-sm mt-1">Abre el perfil de un estudiante y usa "Enviar mensaje"</p>
+                </div>
+              )}
+
+              {dmHilosCargados && dmHilos.length > 0 && (
+                <div className="space-y-2">
+                  {dmHilos.map(hilo => {
+                    const tieneNoLeidos = hilo.noLeidos > 0
+                    const diffMs = hilo.ultimoMensaje ? Date.now() - new Date(hilo.ultimoMensaje.creadoEn).getTime() : null
+                    const tiempoUltimo = diffMs === null ? '' : (() => {
+                      const min = Math.floor(diffMs / 60000)
+                      if (min < 1) return 'ahora'
+                      if (min < 60) return `${min}m`
+                      const h = Math.floor(min / 60)
+                      if (h < 24) return `${h}h`
+                      return `${Math.floor(h / 24)}d`
+                    })()
+                    return (
+                      <button
+                        key={hilo.id}
+                        onClick={() => {
+                          setDmHiloInicial(hilo.id)
+                          setPanelDMsAbierto(true)
+                        }}
+                        className="w-full flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:border-teal-300/50 hover:shadow-sm transition-all text-left"
+                      >
+                        <Avatar className="w-10 h-10 shrink-0">
+                          {hilo.contraparte.logoUrl && <AvatarImage src={hilo.contraparte.logoUrl} />}
+                          <AvatarFallback className={`bg-gradient-to-br ${gradienteAvatar(hilo.contraparte.nombre)} text-white font-bold text-sm`}>
+                            {hilo.contraparte.nombre[0] ?? '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-sm truncate ${tieneNoLeidos ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                              {hilo.contraparte.nombre}
+                            </p>
+                            {tiempoUltimo && (
+                              <span className="text-xs text-gray-400 shrink-0">{tiempoUltimo}</span>
+                            )}
+                          </div>
+                          <p className={`text-xs truncate mt-0.5 ${tieneNoLeidos ? 'text-gray-800' : 'text-gray-400'}`}>
+                            {hilo.ultimoMensaje?.contenido ?? 'Sin mensajes aún'}
+                          </p>
+                        </div>
+                        {tieneNoLeidos && (
+                          <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none shrink-0">
+                            {hilo.noLeidos}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── SECCIÓN: Estudiantes / Validaciones / Dashboard ─ */}
-          {seccionActiva !== "Postulaciones" && seccionActiva !== "Empresas" && seccionActiva !== "Novedades" && seccionActiva !== "Mensajes" && (
+          {seccionActiva !== "Postulaciones" && seccionActiva !== "Empresas" && seccionActiva !== "Novedades" && seccionActiva !== "Mensajes" && seccionActiva !== "DMs Estudiantes" && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1473,16 +1622,25 @@ export function SchoolAdminPanel() {
                 <Button
                   className="flex-1 bg-[#0F172A] hover:bg-[#2563EB] text-white rounded-xl"
                   onClick={guardarValidacion}
-                  disabled={guardando}
+                  disabled={guardando || enviandoDM}
                 >
                   {guardando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Guardar cambios
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 rounded-xl"
+                  className="flex-1 rounded-xl border-teal-200 text-teal-700 hover:bg-teal-50"
+                  onClick={() => abrirDMEstudiante(estudianteValidar.id)}
+                  disabled={guardando || enviandoDM}
+                >
+                  {enviandoDM ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <MessageSquareDashed className="w-4 h-4 mr-2" />}
+                  Enviar mensaje
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
                   onClick={() => setEstudianteValidar(null)}
-                  disabled={guardando}
+                  disabled={guardando || enviandoDM}
                 >
                   Cancelar
                 </Button>
@@ -1502,6 +1660,22 @@ export function SchoolAdminPanel() {
           nombreContraparte={empresaChatNombre}
           logoContraparte={empresaChatLogo}
           token={sesion.token}
+        />
+      )}
+
+      {/* ── PANEL: DMs con estudiantes ────────────────────────── */}
+      {sesion && (
+        <PanelDMs
+          abierto={panelDMsAbierto}
+          onCerrar={() => { setPanelDMsAbierto(false); setDmHiloInicial(null) }}
+          rolActual="ADMINISTRADOR"
+          token={sesion.token}
+          hiloInicialId={dmHiloInicial}
+          onBadgeChange={count => {
+            setDmsBadge(count)
+            // Refrescar lista si la sección está visible
+            if (dmHilosCargados) setDmHilosCargados(false)
+          }}
         />
       )}
     </div>
