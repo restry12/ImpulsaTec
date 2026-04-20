@@ -34,7 +34,7 @@ function construirContraparte(conv, rolActual, idActual) {
       return { id: conv.estudiante1.id, nombre: `${conv.estudiante1.nombre} ${conv.estudiante1.apellido}`, logoUrl: conv.estudiante1.fotoUrl }
     }
     // El estudiante ve al admin como contraparte — devolver el nombre del colegio
-    return { id: conv.administrador.id, nombre: conv.administrador.nombre, logoUrl: null }
+    return { id: conv.administrador.id, nombre: conv.administrador.colegio?.nombre ?? conv.administrador.nombre, logoUrl: conv.administrador.colegio?.logoUrl ?? null }
   }
   // ESTUDIANTE_ESTUDIANTE
   if (conv.estudiante1Id === idActual) {
@@ -113,7 +113,7 @@ router.get('/', verificarToken, async (req, res) => {
         prisma.conversacion.findMany({
           where: { tipo: 'ADMINISTRADOR_ESTUDIANTE', estudiante1Id: estudiante.id },
           include: {
-            administrador: { select: { id: true, nombre: true } },
+            administrador: { select: { id: true, nombre: true, colegio: { select: { nombre: true, logoUrl: true } } } },
             estudiante1: { select: { id: true, nombre: true, apellido: true, fotoUrl: true } },
             mensajes: { orderBy: { creadoEn: 'desc' }, take: 1 },
             _count: { select: { mensajes: { where: { autorTipo: 'ADMINISTRADOR', leido: false } } } },
@@ -190,7 +190,7 @@ router.get('/:id', verificarToken, async (req, res) => {
       where: { id },
       include: {
         empresa: { select: { id: true, nombre: true, logoUrl: true } },
-        administrador: { select: { id: true, nombre: true } },
+        administrador: { select: { id: true, nombre: true, colegio: { select: { nombre: true, logoUrl: true } } } },
         estudiante1: { select: { id: true, nombre: true, apellido: true, fotoUrl: true } },
         estudiante2: { select: { id: true, nombre: true, apellido: true, fotoUrl: true } },
         mensajes: { orderBy: { creadoEn: 'asc' } },
@@ -361,12 +361,7 @@ router.patch('/:id/leido', verificarToken, async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a esta conversación' })
     }
 
-    if (req.usuario.rol === 'EMPRESA') {
-      await prisma.mensajeDirecto.updateMany({
-        where: { conversacionId: id, autorTipo: 'ESTUDIANTE', leido: false },
-        data: { leido: true },
-      })
-    } else if (req.usuario.rol === 'ADMINISTRADOR') {
+    if (req.usuario.rol === 'EMPRESA' || req.usuario.rol === 'ADMINISTRADOR') {
       await prisma.mensajeDirecto.updateMany({
         where: { conversacionId: id, autorTipo: 'ESTUDIANTE', leido: false },
         data: { leido: true },
