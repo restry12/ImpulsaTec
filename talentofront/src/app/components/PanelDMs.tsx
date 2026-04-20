@@ -34,6 +34,7 @@ interface Props {
   token: string
   hiloInicialId?: number | null
   onBadgeChange?: (count: number) => void
+  miId?: number
 }
 
 function tiempoRelativo(fecha: string): string {
@@ -56,7 +57,7 @@ function iniciales(nombre: string): string {
     .toUpperCase()
 }
 
-export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, onBadgeChange }: Props) {
+export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, onBadgeChange, miId }: Props) {
   const [hilos, setHilos] = useState<Hilo[]>([])
   const [tabActiva, setTabActiva] = useState<'EMPRESA_ESTUDIANTE' | 'ESTUDIANTE_ESTUDIANTE'>('EMPRESA_ESTUDIANTE')
   const [hiloActivo, setHiloActivo] = useState<Hilo | null>(null)
@@ -68,6 +69,7 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
   const refScroll = useRef<HTMLDivElement>(null)
   const refInput = useRef<HTMLTextAreaElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hiloInicialAbierto = useRef(false)
 
   const cargarHilos = useCallback(async () => {
     try {
@@ -77,7 +79,7 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
       if (res.ok) {
         const datos: Hilo[] = await res.json()
         setHilos(datos)
-        const totalNoLeidos = new Set(datos.filter(h => h.noLeidos > 0).map(h => h.id)).size
+        const totalNoLeidos = datos.filter(h => h.noLeidos > 0).length
         onBadgeChange?.(totalNoLeidos)
       }
     } catch {}
@@ -116,13 +118,25 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [abierto, cargarHilos])
 
-  // Abrir hilo inicial si se pasa hiloInicialId
+  const abrirHilo = useCallback(async (hilo: Hilo) => {
+    setHiloActivo(hilo)
+    setCargandoMensajes(true)
+    await cargarMensajes(hilo.id)
+    setCargandoMensajes(false)
+    await marcarLeidos(hilo.id)
+    await cargarHilos()
+    setTimeout(() => refInput.current?.focus(), 100)
+  }, [cargarMensajes, marcarLeidos, cargarHilos])
+
+  // Abrir hilo inicial si se pasa hiloInicialId (solo una vez por apertura del panel)
   useEffect(() => {
-    if (!abierto || !hiloInicialId || hilos.length === 0) return
+    if (!abierto || !hiloInicialId || hilos.length === 0 || hiloInicialAbierto.current) return
     const hilo = hilos.find(h => h.id === hiloInicialId)
-    if (hilo) abrirHilo(hilo)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abierto, hiloInicialId, hilos])
+    if (hilo) {
+      hiloInicialAbierto.current = true
+      abrirHilo(hilo)
+    }
+  }, [abierto, hiloInicialId, hilos, abrirHilo])
 
   // Reset al cerrar
   useEffect(() => {
@@ -130,6 +144,7 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
       setHiloActivo(null)
       setMensajes([])
       setTexto('')
+      hiloInicialAbierto.current = false
     }
   }, [abierto])
 
@@ -146,16 +161,6 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
     const iv = setInterval(() => cargarMensajes(hiloActivo.id), 4000)
     return () => clearInterval(iv)
   }, [hiloActivo, cargarMensajes])
-
-  const abrirHilo = async (hilo: Hilo) => {
-    setHiloActivo(hilo)
-    setCargandoMensajes(true)
-    await cargarMensajes(hilo.id)
-    setCargandoMensajes(false)
-    await marcarLeidos(hilo.id)
-    await cargarHilos()
-    setTimeout(() => refInput.current?.focus(), 100)
-  }
 
   const volverALista = () => {
     setHiloActivo(null)
@@ -196,7 +201,14 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
     ? hilos
     : hilos.filter(h => h.tipo === tabActiva)
 
-  const esMioElMensaje = (m: MensajeDM) => m.autorTipo === rolActual
+  const esMioElMensaje = (m: MensajeDM): boolean => {
+    if (rolActual === 'EMPRESA') return m.autorTipo === 'EMPRESA'
+    // En hilos ESTUDIANTE_ESTUDIANTE, ambos tienen autorTipo ESTUDIANTE — usar emisorEstudianteId
+    if (m.emisorEstudianteId !== null && miId !== undefined) {
+      return m.emisorEstudianteId === miId
+    }
+    return m.autorTipo === 'ESTUDIANTE'
+  }
 
   return (
     <AnimatePresence>
