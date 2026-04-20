@@ -158,9 +158,13 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
   // Polling de mensajes cuando hay hilo activo
   useEffect(() => {
     if (!hiloActivo) return
-    const iv = setInterval(() => cargarMensajes(hiloActivo.id), 4000)
+    const iv = setInterval(async () => {
+      await cargarMensajes(hiloActivo.id)
+      await marcarLeidos(hiloActivo.id)
+      cargarHilos()
+    }, 4000)
     return () => clearInterval(iv)
-  }, [hiloActivo, cargarMensajes])
+  }, [hiloActivo, cargarMensajes, marcarLeidos, cargarHilos])
 
   const volverALista = () => {
     setHiloActivo(null)
