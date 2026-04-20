@@ -10,7 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL
 
 type Hilo = {
   id: number
-  tipo: 'EMPRESA_ESTUDIANTE' | 'ESTUDIANTE_ESTUDIANTE'
+  tipo: 'EMPRESA_ESTUDIANTE' | 'ESTUDIANTE_ESTUDIANTE' | 'ADMINISTRADOR_ESTUDIANTE'
   contraparte: { id: number; nombre: string; logoUrl: string | null }
   ultimoMensaje: { contenido: string; creadoEn: string } | null
   noLeidos: number
@@ -20,9 +20,10 @@ type MensajeDM = {
   id: number
   conversacionId: number
   contenido: string
-  autorTipo: 'EMPRESA' | 'ESTUDIANTE'
+  autorTipo: 'EMPRESA' | 'ESTUDIANTE' | 'ADMINISTRADOR'
   emisorEmpresaId: number | null
   emisorEstudianteId: number | null
+  emisorAdministradorId: number | null
   leido: boolean
   creadoEn: string
 }
@@ -30,7 +31,7 @@ type MensajeDM = {
 interface Props {
   abierto: boolean
   onCerrar: () => void
-  rolActual: 'EMPRESA' | 'ESTUDIANTE'
+  rolActual: 'EMPRESA' | 'ESTUDIANTE' | 'ADMINISTRADOR'
   token: string
   hiloInicialId?: number | null
   onBadgeChange?: (count: number) => void
@@ -201,12 +202,13 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
     }
   }
 
-  const hilosFiltrados = rolActual === 'EMPRESA'
-    ? hilos
-    : hilos.filter(h => h.tipo === tabActiva)
+  const hilosFiltrados = rolActual === 'ESTUDIANTE'
+    ? hilos.filter(h => h.tipo === tabActiva)
+    : hilos
 
   const esMioElMensaje = (m: MensajeDM): boolean => {
     if (rolActual === 'EMPRESA') return m.autorTipo === 'EMPRESA'
+    if (rolActual === 'ADMINISTRADOR') return m.autorTipo === 'ADMINISTRADOR'
     // En hilos ESTUDIANTE_ESTUDIANTE, ambos tienen autorTipo ESTUDIANTE — usar emisorEstudianteId
     if (m.emisorEstudianteId !== null && miId !== undefined) {
       return m.emisorEstudianteId === miId
@@ -307,9 +309,11 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
                     <p className="text-xs mt-1 text-gray-400">
                       {rolActual === 'EMPRESA'
                         ? 'Contacta estudiantes para iniciar una conversación.'
-                        : tabActiva === 'EMPRESA_ESTUDIANTE'
-                          ? 'Las empresas te escribirán aquí.'
-                          : 'Busca un estudiante para escribirle.'}
+                        : rolActual === 'ADMINISTRADOR'
+                          ? 'Inicia una conversación con un estudiante.'
+                          : tabActiva === 'EMPRESA_ESTUDIANTE'
+                            ? 'Las empresas te escribirán aquí.'
+                            : 'Busca un estudiante para escribirle.'}
                     </p>
                   </div>
                 ) : (
