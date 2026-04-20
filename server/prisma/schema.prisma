@@ -52,7 +52,9 @@ model Administrador {
   usuario    Usuario  @relation(fields: [usuarioId], references: [id])
   colegio    Colegio  @relation(fields: [colegioId], references: [id])
   posts      Post[]
-  comentarios      Comentario[]
+  comentarios               Comentario[]
+  conversaciones            Conversacion[]
+  mensajesDirectosEmitidos  MensajeDirecto[] @relation("dm_emisor_admin")
 }
 
 // ─── ESTUDIANTE ──────────────────────────────────────────────
@@ -242,33 +244,38 @@ model Mensaje {
 enum TipoConversacion {
   EMPRESA_ESTUDIANTE
   ESTUDIANTE_ESTUDIANTE
+  ADMINISTRADOR_ESTUDIANTE
 }
 
 model Conversacion {
-  id            Int              @id @default(autoincrement())
-  tipo          TipoConversacion
-  empresaId     Int?
-  estudiante1Id Int
-  estudiante2Id Int?
-  creadoEn      DateTime         @default(now())
+  id              Int              @id @default(autoincrement())
+  tipo            TipoConversacion
+  empresaId       Int?
+  administradorId Int?
+  estudiante1Id   Int
+  estudiante2Id   Int?
+  creadoEn        DateTime         @default(now())
 
-  empresa       Empresa?    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  estudiante1   Estudiante  @relation("conv_est1", fields: [estudiante1Id], references: [id])
-  estudiante2   Estudiante? @relation("conv_est2", fields: [estudiante2Id], references: [id])
-  mensajes      MensajeDirecto[]
+  empresa         Empresa?       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  administrador   Administrador? @relation(fields: [administradorId], references: [id], onDelete: Cascade)
+  estudiante1     Estudiante     @relation("conv_est1", fields: [estudiante1Id], references: [id])
+  estudiante2     Estudiante?    @relation("conv_est2", fields: [estudiante2Id], references: [id])
+  mensajes        MensajeDirecto[]
 }
 
 model MensajeDirecto {
-  id                 Int      @id @default(autoincrement())
-  conversacionId     Int
-  contenido          String
-  autorTipo          Rol
-  emisorEmpresaId    Int?
-  emisorEstudianteId Int?
-  leido              Boolean  @default(false)
-  creadoEn           DateTime @default(now())
+  id                    Int      @id @default(autoincrement())
+  conversacionId        Int
+  contenido             String
+  autorTipo             Rol
+  emisorEmpresaId       Int?
+  emisorEstudianteId    Int?
+  emisorAdministradorId Int?
+  leido                 Boolean  @default(false)
+  creadoEn              DateTime @default(now())
 
-  conversacion       Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
-  emisorEmpresa      Empresa?     @relation("dm_emisor_empresa", fields: [emisorEmpresaId], references: [id])
-  emisorEstudiante   Estudiante?  @relation("dm_emisor_estudiante", fields: [emisorEstudianteId], references: [id])
+  conversacion          Conversacion   @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  emisorEmpresa         Empresa?       @relation("dm_emisor_empresa", fields: [emisorEmpresaId], references: [id])
+  emisorEstudiante      Estudiante?    @relation("dm_emisor_estudiante", fields: [emisorEstudianteId], references: [id])
+  emisorAdministrador   Administrador? @relation("dm_emisor_admin", fields: [emisorAdministradorId], references: [id])
 }
