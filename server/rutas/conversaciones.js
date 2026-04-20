@@ -10,6 +10,10 @@ async function esParticipante(conv, req) {
     const empresa = await prisma.empresa.findUnique({ where: { usuarioId: req.usuario.id } })
     return empresa && conv.empresaId === empresa.id
   }
+  if (req.usuario.rol === 'ADMINISTRADOR') {
+    const admin = await prisma.administrador.findUnique({ where: { usuarioId: req.usuario.id } })
+    return admin && conv.administradorId === admin.id
+  }
   if (req.usuario.rol === 'ESTUDIANTE') {
     const estudiante = await prisma.estudiante.findUnique({ where: { usuarioId: req.usuario.id } })
     return estudiante && (conv.estudiante1Id === estudiante.id || conv.estudiante2Id === estudiante.id)
@@ -24,6 +28,13 @@ function construirContraparte(conv, rolActual, idActual) {
       return { id: conv.estudiante1.id, nombre: `${conv.estudiante1.nombre} ${conv.estudiante1.apellido}`, logoUrl: conv.estudiante1.fotoUrl }
     }
     return { id: conv.empresa.id, nombre: conv.empresa.nombre, logoUrl: conv.empresa.logoUrl }
+  }
+  if (conv.tipo === 'ADMINISTRADOR_ESTUDIANTE') {
+    if (rolActual === 'ADMINISTRADOR') {
+      return { id: conv.estudiante1.id, nombre: `${conv.estudiante1.nombre} ${conv.estudiante1.apellido}`, logoUrl: conv.estudiante1.fotoUrl }
+    }
+    // El estudiante ve al admin como contraparte — devolver el nombre del colegio
+    return { id: conv.administrador.id, nombre: conv.administrador.nombre, logoUrl: null }
   }
   // ESTUDIANTE_ESTUDIANTE
   if (conv.estudiante1Id === idActual) {
@@ -65,7 +76,7 @@ router.get('/', verificarToken, async (req, res) => {
       const estudiante = await prisma.estudiante.findUnique({ where: { usuarioId: req.usuario.id } })
       if (!estudiante) return res.status(404).json({ error: 'Perfil de estudiante no encontrado' })
 
-      const [convEmpresa, convEstudiante] = await Promise.all([
+      const [convEmpresa, convEstudiante, convAdmin] = await Promise.all([
         prisma.conversacion.findMany({
           where: { tipo: 'EMPRESA_ESTUDIANTE', estudiante1Id: estudiante.id },
           include: {
@@ -99,6 +110,16 @@ router.get('/', verificarToken, async (req, res) => {
           },
           orderBy: { creadoEn: 'desc' },
         }),
+        prisma.conversacion.findMany({
+          where: { tipo: 'ADMINISTRADOR_ESTUDIANTE', estudiante1Id: estudiante.id },
+          include: {
+            administrador: { select: { id: true, nombre: true } },
+            estudiante1: { select: { id: true, nombre: true, apellido: true, fotoUrl: true } },
+            mensajes: { orderBy: { creadoEn: 'desc' }, take: 1 },
+            _count: { select: { mensajes: { where: { autorTipo: 'ADMINISTRADOR', leido: false } } } },
+          },
+          orderBy: { creadoEn: 'desc' },
+        }),
       ])
 
       const resultado = [
@@ -116,9 +137,40 @@ router.get('/', verificarToken, async (req, res) => {
           ultimoMensaje: conv.mensajes[0] ? { contenido: conv.mensajes[0].contenido, creadoEn: conv.mensajes[0].creadoEn } : null,
           noLeidos: conv._count.mensajes,
         })),
+        ...convAdmin.map(conv => ({
+          id: conv.id,
+          tipo: conv.tipo,
+          contraparte: construirContraparte(conv, 'ESTUDIANTE', estudiante.id),
+          ultimoMensaje: conv.mensajes[0] ? { contenido: conv.mensajes[0].contenido, creadoEn: conv.mensajes[0].creadoEn } : null,
+          noLeidos: conv._count.mensajes,
+        })),
       ]
 
       return res.json(resultado)
+    }
+
+    if (req.usuario.rol === 'ADMINISTRADOR') {
+      const admin = await prisma.administrador.findUnique({ where: { usuarioId: req.usuario.id } })
+      if (!admin) return res.status(404).json({ error: 'Perfil de administrador no encontrado' })
+
+      const convs = await prisma.conversacion.findMany({
+        where: { tipo: 'ADMINISTRADOR_ESTUDIANTE', administradorId: admin.id },
+        include: {
+          administrador: { select: { id: true, nombre: true } },
+          estudiante1: { select: { id: true, nombre: true, apellido: true, fotoUrl: true } },
+          mensajes: { orderBy: { creadoEn: 'desc' }, take: 1 },
+          _count: { select: { mensajes: { where: { autorTipo: 'ESTUDIANTE', leido: false } } } },
+        },
+        orderBy: { creadoEn: 'desc' },
+      })
+
+      return res.json(convs.map(conv => ({
+        id: conv.id,
+        tipo: conv.tipo,
+        contraparte: construirContraparte(conv, 'ADMINISTRADOR', admin.id),
+        ultimoMensaje: conv.mensajes[0] ? { contenido: conv.mensajes[0].contenido, creadoEn: conv.mensajes[0].creadoEn } : null,
+        noLeidos: conv._count.mensajes,
+      })))
     }
 
     return res.status(403).json({ error: 'Acceso no permitido' })
@@ -138,6 +190,7 @@ router.get('/:id', verificarToken, async (req, res) => {
       where: { id },
       include: {
         empresa: { select: { id: true, nombre: true, logoUrl: true } },
+        administrador: { select: { id: true, nombre: true } },
         estudiante1: { select: { id: true, nombre: true, apellido: true, fotoUrl: true } },
         estudiante2: { select: { id: true, nombre: true, apellido: true, fotoUrl: true } },
         mensajes: { orderBy: { creadoEn: 'asc' } },
@@ -214,6 +267,23 @@ router.post('/', verificarToken, async (req, res) => {
       return res.json({ id: conv.id })
     }
 
+    if (req.usuario.rol === 'ADMINISTRADOR') {
+      const admin = await prisma.administrador.findUnique({ where: { usuarioId: req.usuario.id } })
+      if (!admin) return res.status(404).json({ error: 'Perfil de administrador no encontrado' })
+
+      // Buscar hilo existente (find-or-create para idempotencia)
+      let conv = await prisma.conversacion.findFirst({
+        where: { tipo: 'ADMINISTRADOR_ESTUDIANTE', administradorId: admin.id, estudiante1Id: estudianteIdParsed },
+      })
+      if (!conv) {
+        conv = await prisma.conversacion.create({
+          data: { tipo: 'ADMINISTRADOR_ESTUDIANTE', administradorId: admin.id, estudiante1Id: estudianteIdParsed },
+        })
+        return res.status(201).json({ id: conv.id })
+      }
+      return res.json({ id: conv.id })
+    }
+
     return res.status(403).json({ error: 'Acceso no permitido' })
   } catch (error) {
     console.error(error)
@@ -234,6 +304,7 @@ router.post('/:id/mensajes', verificarToken, async (req, res) => {
       where: { id },
       include: {
         empresa: true,
+        administrador: true,
         estudiante1: true,
         estudiante2: true,
       },
@@ -246,10 +317,14 @@ router.post('/:id/mensajes', verificarToken, async (req, res) => {
 
     let emisorEmpresaId = null
     let emisorEstudianteId = null
+    let emisorAdministradorId = null
 
     if (req.usuario.rol === 'EMPRESA') {
       const empresa = await prisma.empresa.findUnique({ where: { usuarioId: req.usuario.id } })
       emisorEmpresaId = empresa.id
+    } else if (req.usuario.rol === 'ADMINISTRADOR') {
+      const admin = await prisma.administrador.findUnique({ where: { usuarioId: req.usuario.id } })
+      emisorAdministradorId = admin.id
     } else {
       const estudiante = await prisma.estudiante.findUnique({ where: { usuarioId: req.usuario.id } })
       emisorEstudianteId = estudiante.id
@@ -262,6 +337,7 @@ router.post('/:id/mensajes', verificarToken, async (req, res) => {
         autorTipo: req.usuario.rol,
         emisorEmpresaId,
         emisorEstudianteId,
+        emisorAdministradorId,
       },
     })
 
@@ -286,6 +362,11 @@ router.patch('/:id/leido', verificarToken, async (req, res) => {
     }
 
     if (req.usuario.rol === 'EMPRESA') {
+      await prisma.mensajeDirecto.updateMany({
+        where: { conversacionId: id, autorTipo: 'ESTUDIANTE', leido: false },
+        data: { leido: true },
+      })
+    } else if (req.usuario.rol === 'ADMINISTRADOR') {
       await prisma.mensajeDirecto.updateMany({
         where: { conversacionId: id, autorTipo: 'ESTUDIANTE', leido: false },
         data: { leido: true },
