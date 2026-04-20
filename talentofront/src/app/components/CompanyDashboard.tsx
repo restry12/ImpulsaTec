@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { PanelChat } from './PanelChat'
+import { PanelDMs } from './PanelDMs'
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bell, Search, MessageSquare, Building2, FileText, Bookmark,
   TrendingUp, SlidersHorizontal, X, LogOut, Award, CheckCircle, Mail,
   Plus, Loader2, ToggleLeft, ToggleRight, Users, Pencil,
   Home, ThumbsUp, Share2, Paperclip, ImageIcon,
-  MessageCircle, Trash2, MoreVertical, Send
+  MessageCircle, Trash2, MoreVertical, Send, GraduationCap, Star, Briefcase
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
@@ -138,6 +139,10 @@ export function CompanyDashboard() {
   // Chat con el colegio
   const [panelChatAbierto, setPanelChatAbierto] = useState(false)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
+  // DMs con estudiantes
+  const [panelDMsAbierto, setPanelDMsAbierto] = useState(false)
+  const [dmHiloInicial, setDmHiloInicial] = useState<number | null>(null)
+  const [dmsBadge, setDmsBadge] = useState(0)
   // Ver postulantes de una oferta
   const [ofertaPostulantesId, setOfertaPostulantesId] = useState<number | null>(null)
   const [postulantes, setPostulantes] = useState<PostulanteOferta[]>([])
@@ -516,14 +521,14 @@ export function CompanyDashboard() {
                 <span>Guardados</span>
               </button>
               <button
-                onClick={() => { setPanelChatAbierto(true); setMensajesNoLeidos(0) }}
+                onClick={() => { setPanelDMsAbierto(true); setDmHiloInicial(null) }}
                 className="relative flex items-center gap-1.5 text-white/70 hover:text-white transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Mensajes</span>
-                {mensajesNoLeidos > 0 && (
+                {dmsBadge > 0 && (
                   <span className="absolute -top-1.5 -right-2 bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
-                    {mensajesNoLeidos}
+                    {dmsBadge}
                   </span>
                 )}
               </button>
@@ -1220,89 +1225,183 @@ export function CompanyDashboard() {
       {/* ── DIÁLOGO: Perfil completo del estudiante ─────────── */}
       <Dialog open={!!estudianteSel} onOpenChange={abierto => { if (!abierto) setEstudianteSel(null) }}>
         {estudianteSel && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-0">
+            <DialogHeader className="sr-only">
               <DialogTitle>{estudianteSel.nombre} {estudianteSel.apellido}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-5 pt-2">
-              {/* Cabecera */}
-              <div className={`bg-gradient-to-br ${gradienteAvatar(estudianteSel.nombre)} rounded-xl p-5 text-white`}>
-                <div className="flex items-center gap-4">
-                  <Avatar className="w-20 h-20 border-4 border-white/30 shadow-lg">
-                    {estudianteSel.fotoUrl && <AvatarImage src={estudianteSel.fotoUrl} />}
-                    <AvatarFallback className="bg-white/20 text-white font-bold text-2xl">
-                      {estudianteSel.nombre[0]}{estudianteSel.apellido[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h2 className="text-xl font-bold mb-0.5">{estudianteSel.nombre} {estudianteSel.apellido}</h2>
-                    <p className="text-sm text-white/80 font-medium uppercase tracking-wide">{estudianteSel.especialidad}</p>
-                    <div className="flex items-center gap-1.5 mt-2 text-white/70 text-xs">
-                      <Award className="w-3.5 h-3.5" />
-                      <span>{estudianteSel.colegio.nombre}</span>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={estudianteSel.id}
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.22 }}
+              >
+                {/* Banner + avatar */}
+                <div className={`relative bg-gradient-to-br ${gradienteAvatar(estudianteSel.nombre)} px-6 pt-8 pb-16`}>
+                  <div className="flex items-start gap-4">
+                    <Avatar className="w-24 h-24 border-4 border-white/30 shadow-xl shrink-0">
+                      {estudianteSel.fotoUrl && <AvatarImage src={estudianteSel.fotoUrl} />}
+                      <AvatarFallback className="bg-white/20 text-white font-bold text-3xl">
+                        {estudianteSel.nombre[0]}{estudianteSel.apellido[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-white pt-1">
+                      <h2 className="text-2xl font-bold leading-tight">
+                        {estudianteSel.nombre} {estudianteSel.apellido}
+                      </h2>
+                      <p className="text-white/80 text-sm font-medium mt-0.5 uppercase tracking-wide">
+                        {estudianteSel.especialidad}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-2 text-white/70 text-xs">
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>{estudianteSel.colegio.nombre}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                {estudianteSel.descripcion && (
-                  <p className="mt-3 text-sm text-white/80 leading-relaxed">{estudianteSel.descripcion}</p>
-                )}
-              </div>
-
-              {/* Habilidades */}
-              {estudianteSel.habilidades.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide">Habilidades</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {estudianteSel.habilidades.map(h => (
-                      <span key={h.id} className="text-sm bg-[#DBEAFE] text-[#0F172A] px-3 py-1.5 rounded-full font-medium">
-                        {h.nombre}
-                      </span>
-                    ))}
+                  {/* Badge disponibilidad */}
+                  <div className="absolute bottom-4 right-5">
+                    <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
+                      estudianteSel.disponible
+                        ? "bg-emerald-500/20 border-emerald-300/40 text-white"
+                        : "bg-white/10 border-white/20 text-white/70"
+                    }`}>
+                      {estudianteSel.disponible ? "● Disponible para pasantía" : "En pasantía"}
+                    </span>
                   </div>
                 </div>
-              )}
 
-              {/* Certificaciones */}
-              {estudianteSel.certificaciones.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide">Certificaciones técnicas</h3>
-                  <div className="space-y-2">
-                    {estudianteSel.certificaciones.map(cert => (
-                      <div key={cert.id} className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{cert.nombre}</p>
-                          {cert.institucion && <p className="text-xs text-gray-500">{cert.institucion}</p>}
-                        </div>
+                <div className="px-6 py-5 space-y-5">
+                  {/* Descripción */}
+                  {estudianteSel.descripcion && (
+                    <p className="text-sm text-gray-700 leading-relaxed">{estudianteSel.descripcion}</p>
+                  )}
+
+                  {/* Estadísticas rápidas */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
+                      <Star className="w-4 h-4 mx-auto mb-1 text-blue-600" />
+                      <p className="text-lg font-bold text-gray-900">{estudianteSel.habilidades.length}</p>
+                      <p className="text-xs text-gray-500">Habilidades</p>
+                      <p className="text-xs text-blue-600 font-medium">{estudianteSel.habilidades.filter(h => h.validada).length} validadas</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+                      <Award className="w-4 h-4 mx-auto mb-1 text-emerald-600" />
+                      <p className="text-lg font-bold text-gray-900">{estudianteSel.certificaciones.length}</p>
+                      <p className="text-xs text-gray-500">Certificaciones</p>
+                      <p className="text-xs text-emerald-600 font-medium">{estudianteSel.certificaciones.filter(c => c.validada).length} validadas</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+                      <Briefcase className="w-4 h-4 mx-auto mb-1 text-[#0F172A]" />
+                      <p className="text-sm font-bold text-gray-900 leading-tight">{estudianteSel.especialidad}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Especialidad</p>
+                    </div>
+                  </div>
+
+                  {/* Habilidades con validación */}
+                  {estudianteSel.habilidades.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">Habilidades</h3>
+                        <span className="text-xs text-gray-400">
+                          {estudianteSel.habilidades.filter(h => h.validada).length}/{estudianteSel.habilidades.length} validadas por el colegio
+                        </span>
                       </div>
-                    ))}
+                      <div className="space-y-2">
+                        {estudianteSel.habilidades.map(h => (
+                          <div
+                            key={h.id}
+                            className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+                              h.validada ? "bg-blue-50 border-blue-100" : "bg-gray-50 border-gray-100"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${h.validada ? "bg-blue-500" : "bg-gray-300"}`} />
+                              <span className="text-sm font-medium text-gray-800">{h.nombre}</span>
+                            </div>
+                            {h.validada ? (
+                              <span className="text-xs font-medium text-blue-600 flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5" /> Validada
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">Pendiente</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Certificaciones con validación */}
+                  {estudianteSel.certificaciones.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">Certificaciones técnicas</h3>
+                        <span className="text-xs text-gray-400">
+                          {estudianteSel.certificaciones.filter(c => c.validada).length}/{estudianteSel.certificaciones.length} validadas
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {estudianteSel.certificaciones.map(cert => (
+                          <div
+                            key={cert.id}
+                            className={`flex items-center gap-3 p-3 rounded-xl border ${
+                              cert.validada ? "bg-emerald-50 border-emerald-100" : "bg-gray-50 border-gray-100"
+                            }`}
+                          >
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              cert.validada ? "bg-emerald-500" : "bg-gray-200"
+                            }`}>
+                              <CheckCircle className={`w-4 h-4 ${cert.validada ? "text-white" : "text-gray-400"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-800">{cert.nombre}</p>
+                              {cert.institucion && (
+                                <p className="text-xs text-gray-500 mt-0.5">{cert.institucion}</p>
+                              )}
+                            </div>
+                            {cert.validada ? (
+                              <span className="text-xs font-medium text-emerald-600 shrink-0">Validada</span>
+                            ) : (
+                              <span className="text-xs text-gray-400 shrink-0">Pendiente</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Botón contactar */}
+                  <div className="pt-1 border-t border-gray-100">
+                    <Button
+                      className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl h-11 text-sm font-semibold"
+                      onClick={async () => {
+                        if (!sesion || !estudianteSel) return
+                        try {
+                          const res = await fetch(`${API_URL}/api/contactos`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${sesion.token}` },
+                            body: JSON.stringify({ estudianteId: estudianteSel.id }),
+                          })
+                          if (!res.ok) throw new Error()
+                          const datos = await res.json()
+                          toast.success("Contacto registrado correctamente")
+                          setEstudianteSel(null)
+                          setDmHiloInicial(datos.conversacionId)
+                          setPanelDMsAbierto(true)
+                        } catch {
+                          toast.error("Error al registrar el contacto")
+                        }
+                      }}
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Contactar estudiante
+                    </Button>
                   </div>
                 </div>
-              )}
-
-              {/* Botón contactar */}
-              <Button
-                className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl"
-                onClick={async () => {
-                  if (!sesion || !estudianteSel) return
-                  try {
-                    const res = await fetch(`${API_URL}/api/contactos`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sesion.token}` },
-                      body: JSON.stringify({ estudianteId: estudianteSel.id }),
-                    })
-                    if (!res.ok) throw new Error()
-                    toast.success("Contacto registrado correctamente")
-                    setEstudianteSel(null)
-                  } catch {
-                    toast.error("Error al registrar el contacto")
-                  }
-                }}
-              >
-                <Mail className="w-4 h-4 mr-2" />
-                Contactar estudiante
-              </Button>
-            </div>
+              </motion.div>
+            </AnimatePresence>
           </DialogContent>
         )}
       </Dialog>
@@ -1524,6 +1623,17 @@ export function CompanyDashboard() {
           autorActual="EMPRESA"
           nombreContraparte="Colegio Cardenal José María Caro"
           token={sesion.token}
+        />
+      )}
+      {sesion && perfil && (
+        <PanelDMs
+          abierto={panelDMsAbierto}
+          onCerrar={() => { setPanelDMsAbierto(false); setDmHiloInicial(null) }}
+          rolActual="EMPRESA"
+          token={sesion.token}
+          miId={perfil.id}
+          hiloInicialId={dmHiloInicial}
+          onBadgeChange={setDmsBadge}
         />
       )}
     </div>
