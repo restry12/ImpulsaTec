@@ -22,6 +22,7 @@ import { useAuth } from "../context/AuthContext";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
 import { subirMedia } from "../../lib/supabase";
 import { Progress } from "./ui/progress";
+import { PanelDMs } from './PanelDMs'
 
 type PostFeed = {
   id: number
@@ -171,6 +172,9 @@ export function StudentDashboard() {
   const [ofertasCargadas, setOfertasCargadas] = useState(false)
   const [ofertasBusqueda, setOfertasBusqueda] = useState("")
   const [filtroEsp, setFiltroEsp] = useState("")
+  const [panelDMsAbierto, setPanelDMsAbierto] = useState(false)
+  const [dmHiloInicial, setDmHiloInicial] = useState<number | null>(null)
+  const [dmsBadge, setDmsBadge] = useState(0)
 
   useEffect(() => {
     if (!sesion) return
@@ -620,10 +624,18 @@ export function StudentDashboard() {
                 <Users className="w-4 h-4" />
                 <span>Red</span>
               </Link>
-              <Link to="#" className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors">
+              <button
+                onClick={() => { setPanelDMsAbierto(true); setDmHiloInicial(null) }}
+                className="relative flex items-center gap-1.5 text-white/70 hover:text-white transition-colors"
+              >
                 <MessageSquare className="w-4 h-4" />
                 <span>Mensajes</span>
-              </Link>
+                {dmsBadge > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                    {dmsBadge}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
           <div className="flex-1 max-w-sm mx-4">
@@ -1632,6 +1644,18 @@ export function StudentDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {sesion && perfil && (
+        <PanelDMs
+          abierto={panelDMsAbierto}
+          onCerrar={() => { setPanelDMsAbierto(false); setDmHiloInicial(null) }}
+          rolActual="ESTUDIANTE"
+          token={sesion.token}
+          miId={perfil.id}
+          hiloInicialId={dmHiloInicial}
+          onBadgeChange={setDmsBadge}
+        />
+      )}
     </div>
   )
 }
