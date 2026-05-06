@@ -34,7 +34,8 @@ type PostFeed = {
   empresaId: number | null
   administradorId: number | null
   creadoEn: string
-  _count: { comentarios: number }
+  _count: { comentarios: number; likes: number }
+  miLike?: boolean
   estudiante: {
     id: number
     nombre: string
@@ -128,15 +129,8 @@ export function StudentDashboard() {
   const [comentariosPorPost, setComentariosPorPost] = useState<Record<number, Comentario[]>>({})
   const [textosComentario, setTextosComentario] = useState<Record<number, string>>({})
   const [enviandoComentario, setEnviandoComentario] = useState<Set<number>>(new Set())
-  const [likesActivos, setLikesActivos] = useState<Set<number>>(() => {
-    const clave = `impulsa_likes_${sesion?.id}`
-    try {
-      const guardado = localStorage.getItem(clave)
-      return guardado ? new Set<number>(JSON.parse(guardado)) : new Set<number>()
-    } catch {
-      return new Set<number>()
-    }
-  })
+  const [likesActivos, setLikesActivos] = useState<Set<number>>(new Set())
+  const [conteosLikes, setConteosLikes] = useState<Record<number, number>>({})
   // Estado de postulaciones enviadas (inicializado con las ya existentes en BD)
   const [postuladas, setPostuladas] = useState<Set<number>>(new Set())
   const [postulando, setPostulando] = useState<number | null>(null)
@@ -221,10 +215,21 @@ export function StudentDashboard() {
       .then((datos: ContactoRecibido[]) => setMisContactos(datos))
       .catch(() => {})
 
-    // Carga los posts del feed
-    fetch(`${API_URL}/api/posts`)
+    // Carga los posts del feed (con token para obtener miLike)
+    fetch(`${API_URL}/api/posts`, {
+      headers: sesion ? { Authorization: `Bearer ${sesion.token}` } : {},
+    })
       .then(res => res.json())
-      .then((datos: PostFeed[]) => { setPosts(datos); setCargandoPosts(false) })
+      .then((datos: PostFeed[]) => {
+        setPosts(datos)
+        setCargandoPosts(false)
+        // Inicializa likesActivos desde los datos de la API
+        setLikesActivos(new Set(datos.filter(p => p.miLike).map(p => p.id)))
+        // Inicializa conteos de likes
+        const conteos: Record<number, number> = {}
+        datos.forEach(p => { conteos[p.id] = p._count.likes })
+        setConteosLikes(conteos)
+      })
       .catch(() => setCargandoPosts(false))
   }, [])
 
@@ -257,19 +262,57 @@ export function StudentDashboard() {
     return coincideTexto && coincideEsp
   })
 
-  const alternarLike = (postId: number) => {
+  const alternarLike = async (postId: number) => {
+    if (!sesion) return
+    // Actualización optimista
+    const yaLiked = likesActivos.has(postId)
     setLikesActivos(prev => {
       const siguiente = new Set(prev)
-      if (siguiente.has(postId)) {
-        siguiente.delete(postId)
-      } else {
-        siguiente.add(postId)
-      }
-      // Persiste en localStorage
-      const clave = `impulsa_likes_${sesion?.id}`
-      localStorage.setItem(clave, JSON.stringify([...siguiente]))
+      if (yaLiked) siguiente.delete(postId)
+      else siguiente.add(postId)
       return siguiente
     })
+    setConteosLikes(prev => ({
+      ...prev,
+      [postId]: (prev[postId] ?? 0) + (yaLiked ? -1 : 1),
+    }))
+
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${postId}/like`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+      if (res.ok) {
+        const { liked, count } = await res.json()
+        setLikesActivos(prev => {
+          const s = new Set(prev)
+          if (liked) s.add(postId)
+          else s.delete(postId)
+          return s
+        })
+        setConteosLikes(prev => ({ ...prev, [postId]: count }))
+      } else {
+        // Revertir actualización optimista
+        setLikesActivos(prev => {
+          const s = new Set(prev)
+          if (yaLiked) s.add(postId)
+          else s.delete(postId)
+          return s
+        })
+        setConteosLikes(prev => ({
+          ...prev,
+          [postId]: (prev[postId] ?? 0) + (yaLiked ? 1 : -1),
+        }))
+      }
+    } catch {
+      // Revertir en error de red
+      setLikesActivos(prev => {
+        const s = new Set(prev)
+        if (yaLiked) s.add(postId)
+        else s.delete(postId)
+        return s
+      })
+    }
   }
 
   async function toggleComentarios(postId: number) {
@@ -309,7 +352,7 @@ export function StudentDashboard() {
       setComentariosPorPost(prev => ({ ...prev, [postId]: [...(prev[postId] ?? []), nuevo] }))
       setTextosComentario(prev => ({ ...prev, [postId]: '' }))
       setPosts(prev => prev.map(p =>
-        p.id === postId ? { ...p, _count: { comentarios: p._count.comentarios + 1 } } : p
+        p.id === postId ? { ...p, _count: { ...p._count, comentarios: p._count.comentarios + 1 } } : p
       ))
     } finally {
       setEnviandoComentario(prev => { const s = new Set(prev); s.delete(postId); return s })
@@ -329,7 +372,7 @@ export function StudentDashboard() {
         [postId]: (prev[postId] ?? []).filter(c => c.id !== comentarioId),
       }))
       setPosts(prev => prev.map(p =>
-        p.id === postId ? { ...p, _count: { comentarios: Math.max(0, p._count.comentarios - 1) } } : p
+        p.id === postId ? { ...p, _count: { ...p._count, comentarios: Math.max(0, p._count.comentarios - 1) } } : p
       ))
     } catch {}
   }
@@ -400,6 +443,30 @@ export function StudentDashboard() {
       // Error de red — igual marcamos para UX optimista
     } finally {
       setPostulando(null)
+    }
+  }
+
+  const retirarPostulacion = async (postulacionId: number, ofertaId: number) => {
+    if (!sesion) return
+    try {
+      const res = await fetch(`${API_URL}/api/postulaciones/${postulacionId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      })
+      if (res.ok) {
+        setMisPostulaciones(prev => prev.filter(p => p.id !== postulacionId))
+        setPostuladas(prev => {
+          const s = new Set(prev)
+          s.delete(ofertaId)
+          return s
+        })
+        toast.success('Postulación retirada')
+      } else {
+        const datos = await res.json()
+        toast.error(datos.error ?? 'No se pudo retirar la postulación')
+      }
+    } catch {
+      toast.error('Error de red al retirar la postulación')
     }
   }
 
@@ -578,6 +645,7 @@ export function StudentDashboard() {
         const actualizado = await res.json()
         setPerfil(actualizado)
         setMostrarEditarPerfil(false)
+        toast.success('Perfil actualizado')
       }
     } catch {
       // Error de red
@@ -596,66 +664,54 @@ export function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#EDE7D8]">
 
-      {/* ── NAVBAR ─────────────────────────────────────────── */}
-      <nav className="bg-[#0F172A] text-white px-6 py-3.5 sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      {/* ── NAVBAR EDITORIAL ───────────────────────────────── */}
+      <nav className="bg-[#FBFAF6]/90 backdrop-blur-md border-b hairline sticky top-0 z-40">
+        <div className="max-w-[1240px] mx-auto px-6 h-[60px] flex items-center justify-between gap-4">
           <div className="flex items-center gap-6">
-            <Link to="/">
-              <img src={logoImage} alt="ImpulsaTec" className="h-9 bg-white rounded-lg px-2 py-1" />
+            <Link to="/" className="flex items-center gap-3">
+              <img src={logoImage} alt="ImpulsaTec" className="h-9 bg-white rounded px-1.5 py-0.5 border hairline shrink-0" />
+              <div className="font-display text-[20px] leading-none text-[#0B0F1A] hidden sm:block">ImpulsaTec</div>
             </Link>
-            <div className="hidden md:flex items-center gap-5 text-sm">
+            <div className="hidden md:flex items-center gap-1">
               <button
                 onClick={() => setVistaActiva("feed")}
-                className={`flex items-center gap-1.5 transition-colors ${vistaActiva === "feed" ? "text-white font-semibold" : "text-white/70 hover:text-white"}`}
+                className={`flex items-center gap-1.5 px-3 h-8 rounded-md text-[13px] font-medium transition-colors ${vistaActiva === "feed" ? "bg-[#0B0F1A] text-[#F6F3EC]" : "text-[#0B0F1A]/60 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]"}`}
               >
                 <Home className="w-4 h-4" />
                 <span>Inicio</span>
               </button>
               <button
                 onClick={() => setVistaActiva("ofertas")}
-                className={`flex items-center gap-1.5 transition-colors ${vistaActiva === "ofertas" ? "text-white font-semibold" : "text-white/70 hover:text-white"}`}
+                className={`flex items-center gap-1.5 px-3 h-8 rounded-md text-[13px] font-medium transition-colors ${vistaActiva === "ofertas" ? "bg-[#0B0F1A] text-[#F6F3EC]" : "text-[#0B0F1A]/60 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]"}`}
               >
                 <Briefcase className="w-4 h-4" />
                 <span>Oportunidades</span>
               </button>
-              <Link to="#" className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors">
-                <Users className="w-4 h-4" />
-                <span>Red</span>
-              </Link>
               <button
                 onClick={() => { setPanelDMsAbierto(true); setDmHiloInicial(null) }}
-                className="relative flex items-center gap-1.5 text-white/70 hover:text-white transition-colors"
+                className="relative flex items-center gap-1.5 px-3 h-8 rounded-md text-[13px] font-medium text-[#0B0F1A]/60 hover:text-[#0B0F1A] hover:bg-[#EDE7D8] transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Mensajes</span>
                 {dmsBadge > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-[#C94A2A] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-0.5">
                     {dmsBadge}
                   </span>
                 )}
               </button>
             </div>
           </div>
-          <div className="flex-1 max-w-sm mx-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-              <Input
-                placeholder="Buscar..."
-                className="pl-9 bg-white/10 border-white/15 text-white placeholder:text-white/40 text-sm h-9 rounded-lg focus-visible:ring-white/30"
-              />
-            </div>
-          </div>
           <div className="flex items-center gap-3">
             <button
-              className="relative p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+              className="relative p-1.5 hover:bg-[#EDE7D8] rounded-md transition-colors"
               onClick={() => setNotifPostulaciones(0)}
               title={notifPostulaciones > 0 ? `${notifPostulaciones} postulación${notifPostulaciones > 1 ? "es" : ""} actualizada${notifPostulaciones > 1 ? "s" : ""}` : "Notificaciones"}
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-5 h-5 text-[#0B0F1A]" />
               {notifPostulaciones > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-[#F97316] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-0.5">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-[#C94A2A] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-0.5">
                   {notifPostulaciones}
                 </span>
               )}
@@ -664,9 +720,9 @@ export function StudentDashboard() {
             {/* Avatar con menú */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Avatar className="w-8 h-8 border-2 border-white/30 cursor-pointer">
+                <Avatar className="w-8 h-8 cursor-pointer border hairline-strong">
                   {perfil?.fotoUrl && <AvatarImage src={perfil.fotoUrl} />}
-                  <AvatarFallback className="bg-white/20 text-white text-xs">
+                  <AvatarFallback className="bg-[#0B0F1A] text-[#F6F3EC] text-xs font-display">
                     {perfil?.nombre[0] ?? "?"}
                   </AvatarFallback>
                 </Avatar>
@@ -697,12 +753,10 @@ export function StudentDashboard() {
 
       {/* ── VISTA: Oportunidades (búsqueda de ofertas) ──────── */}
       {vistaActiva === "ofertas" && (
-        <div className="max-w-5xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Oportunidades de pasantía</h2>
-              <p className="text-sm text-gray-500">Encuentra tu próxima pasantía técnica</p>
-            </div>
+        <div className="max-w-[1240px] mx-auto px-6 py-8">
+          <div className="mb-6">
+            <div className="smallcaps text-[11px] font-semibold text-[#0B0F1A]/50 mb-1">Pasantías · Freelance</div>
+            <h2 className="font-display text-[40px] leading-tight text-[#0B0F1A]">Oportunidades</h2>
           </div>
 
           {/* Buscador + filtro */}
@@ -714,7 +768,7 @@ export function StudentDashboard() {
                 placeholder="Buscar por título, empresa o descripción..."
                 value={ofertasBusqueda}
                 onChange={e => setOfertasBusqueda(e.target.value)}
-                className="w-full pl-9 pr-4 h-10 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                className="w-full pl-9 pr-4 h-10 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0B0F1A]/30 focus:border-ink"
               />
               {ofertasBusqueda && (
                 <button onClick={() => setOfertasBusqueda("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -732,8 +786,8 @@ export function StudentDashboard() {
                 onClick={() => setFiltroEsp(esp)}
                 className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
                   filtroEsp === esp
-                    ? "bg-[#0F172A] text-white"
-                    : "bg-white border border-gray-200 text-gray-600 hover:border-[#0F172A] hover:text-[#0F172A]"
+                    ? "bg-[#0B0F1A] text-white"
+                    : "bg-white border border-gray-200 text-gray-600 hover:border-[#0B0F1A] hover:text-[#0B0F1A]"
                 }`}
               >
                 {esp || "Todas"}
@@ -774,14 +828,14 @@ export function StudentDashboard() {
                       <div className="flex items-center gap-3 mb-3">
                         <Avatar className="w-10 h-10 rounded-xl shrink-0">
                           {oferta.empresa.logoUrl && <AvatarImage src={oferta.empresa.logoUrl} />}
-                          <AvatarFallback className="rounded-xl bg-[#DBEAFE] text-[#0F172A] text-sm font-bold">
+                          <AvatarFallback className="rounded-xl bg-[#EDE7D8] text-[#0B0F1A] text-sm font-bold">
                             {oferta.empresa.nombre[0]}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <button
                             onClick={() => navegar(`/empresas/${oferta.empresa.id}`)}
-                            className="text-xs font-semibold text-gray-700 hover:text-[#2563EB] truncate block transition-colors"
+                            className="text-xs font-semibold text-gray-700 hover:text-[#0B0F1A] truncate block transition-colors"
                           >
                             {oferta.empresa.nombre}
                           </button>
@@ -790,7 +844,7 @@ export function StudentDashboard() {
                       </div>
                       {/* Título + especialidad */}
                       <h3 className="text-sm font-bold text-gray-900 mb-1">{oferta.titulo}</h3>
-                      <Badge className="w-fit text-xs bg-[#DBEAFE] text-[#0F172A] border-0 hover:bg-[#DBEAFE] mb-2">
+                      <Badge className="w-fit text-xs bg-[#EDE7D8] text-[#0B0F1A] border-0 hover:bg-[#EDE7D8] mb-2">
                         {oferta.especialidad}
                       </Badge>
                       <p className="text-xs text-gray-500 line-clamp-2 flex-1 mb-3">{oferta.descripcion}</p>
@@ -810,7 +864,7 @@ export function StudentDashboard() {
                             size="sm"
                             onClick={() => postular(oferta.id)}
                             disabled={postulando === oferta.id}
-                            className="bg-[#F97316] hover:bg-[#EA580C] text-white text-xs h-7 rounded-lg px-3"
+                            className="bg-[#C94A2A] hover:bg-[#B33E22] text-white text-xs h-7 rounded-lg px-3"
                           >
                             {postulando === oferta.id
                               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -829,8 +883,8 @@ export function StudentDashboard() {
 
       {/* ── VISTA: Feed ─────────────────────────────────────── */}
       {vistaActiva === "feed" && (
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-12 gap-5">
+      <div className="max-w-[1240px] mx-auto px-6 py-8">
+        <div className="grid grid-cols-12 gap-6">
 
           {/* ── SIDEBAR IZQUIERDO — Perfil ─────────────────── */}
           <aside className="col-span-12 lg:col-span-3">
@@ -839,38 +893,35 @@ export function StudentDashboard() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <Card className="overflow-hidden border-0 shadow-sm">
-                <div className="h-20 bg-gradient-to-br from-[#0F172A] to-[#2563EB] relative">
-                  <div className="absolute inset-0 opacity-20"
-                    style={{ backgroundImage: "radial-gradient(circle at 30% 50%, white 1px, transparent 1px)", backgroundSize: "20px 20px" }}
-                  />
+              <div className="border hairline rounded-lg overflow-hidden bg-[#FBFAF6]">
+                <div className="h-16 bg-[#0B0F1A] relative">
+                  <div className="absolute inset-0 placeholder-stripe-dark opacity-50" />
                 </div>
-                <CardContent className="pt-0 pb-5 px-5">
-                  <div className="flex flex-col items-center -mt-10 text-center">
-                    <Avatar className="w-20 h-20 border-4 border-white shadow-lg">
-                      {perfil?.fotoUrl && <AvatarImage src={perfil.fotoUrl} />}
-                      <AvatarFallback>{perfil?.nombre[0] ?? "?"}</AvatarFallback>
-                    </Avatar>
-                    <h3 className="mt-3 font-bold text-gray-900">
+                <div className="pt-0 pb-5 px-5">
+                  <div className="flex flex-col items-center -mt-8 text-center">
+                    <div className="w-16 h-16 rounded-lg border-2 border-[#FBFAF6] bg-[#C94A2A] flex items-center justify-center font-display text-[#F6F3EC] text-2xl shadow-md">
+                      {perfil?.fotoUrl
+                        ? <img src={perfil.fotoUrl} className="w-full h-full object-cover rounded-lg" alt="" />
+                        : perfil?.nombre[0] ?? "?"}
+                    </div>
+                    <h3 className="mt-3 font-display text-[20px] leading-tight text-[#0B0F1A]">
                       {perfil ? `${perfil.nombre} ${perfil.apellido}` : "—"}
                     </h3>
-                    <p className="text-xs font-medium text-[#0F172A] uppercase tracking-wide mt-0.5">
+                    <div className="smallcaps text-[10px] text-[#0B0F1A]/55 mt-0.5">
                       {perfil?.especialidad ?? "—"}
-                    </p>
-                    <div className={`mt-3 px-3 py-1 rounded-full ${perfil?.disponible ? "bg-emerald-50" : "bg-gray-100"}`}>
-                      <span className={`text-xs font-medium ${perfil?.disponible ? "text-emerald-700" : "text-gray-500"}`}>
-                        {perfil?.disponible ? "● Disponible" : "● En pasantía"}
-                      </span>
+                    </div>
+                    <div className={`mt-2 px-3 py-1 rounded-full text-[11px] font-medium ${perfil?.disponible ? "bg-[#DFE8DA] text-[#2E4E2B]" : "bg-[#EDE7D8] text-[#0B0F1A]/60"}`}>
+                      {perfil?.disponible ? "● Disponible" : "● En pasantía"}
                     </div>
                   </div>
 
                   {/* Habilidades */}
                   <div className="mt-5">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Habilidades</h4>
+                      <div className="smallcaps text-[10px] font-semibold text-[#0B0F1A]/50">Habilidades</div>
                       <button
                         onClick={() => setTipoAgregar("habilidad")}
-                        className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-[#0F172A] transition-colors"
+                        className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-[#0B0F1A] transition-colors"
                         title="Agregar habilidad"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -882,7 +933,7 @@ export function StudentDashboard() {
                           <span
                             key={hab.id}
                             className={`group flex items-center gap-1 text-xs pl-2.5 pr-1.5 py-1 rounded-full font-medium ${
-                              hab.validada ? "bg-[#DBEAFE] text-[#2563EB]" : "bg-gray-100 text-gray-500"
+                              hab.validada ? "bg-[#EDE7D8] text-[#0B0F1A]" : "bg-gray-100 text-gray-500"
                             }`}
                           >
                             {hab.nombre}
@@ -904,10 +955,10 @@ export function StudentDashboard() {
                   {/* Certificaciones */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Certificaciones</h4>
+                      <div className="smallcaps text-[10px] font-semibold text-[#0B0F1A]/50">Certificaciones</div>
                       <button
                         onClick={() => setTipoAgregar("certificacion")}
-                        className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-[#0F172A] transition-colors"
+                        className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-[#0B0F1A] transition-colors"
                         title="Agregar certificación"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -942,15 +993,15 @@ export function StudentDashboard() {
                   </div>
 
                   {/* Descargar CV → abre diálogo de impresión del navegador */}
-                  <Button
-                    className="w-full mt-5 bg-[#F97316] hover:bg-[#EA580C] text-white text-sm rounded-lg"
+                  <button
+                    className="hover-lift w-full mt-5 h-9 rounded-full text-[13px] font-medium flex items-center justify-center gap-2 bg-[#0B0F1A] text-[#F6F3EC]"
                     onClick={descargarCV}
                   >
-                    <Download className="w-3.5 h-3.5 mr-2" />
+                    <Download className="w-3.5 h-3.5" />
                     Descargar CV
-                  </Button>
-                </CardContent>
-              </Card>
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </aside>
 
@@ -962,29 +1013,26 @@ export function StudentDashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.1 }}
             >
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex gap-3 items-center">
-                    <Avatar className="w-9 h-9 shrink-0">
-                      {perfil?.fotoUrl && <AvatarImage src={perfil.fotoUrl} />}
-                      <AvatarFallback>{perfil?.nombre[0] ?? "?"}</AvatarFallback>
-                    </Avatar>
+              <div className="border hairline rounded-lg bg-[#FBFAF6] p-4">
+                <div className="flex gap-3 items-center">
+                  <div className="w-9 h-9 rounded-md bg-[#C94A2A] flex items-center justify-center font-display text-[#F6F3EC] text-sm shrink-0">
+                    {perfil?.nombre[0] ?? "?"}
+                  </div>
                     {/* Abre el diálogo de crear publicación */}
                     <button
-                      className="flex-1 text-left px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-500 transition-colors"
+                      className="flex-1 text-left px-4 py-2.5 bg-[#EDE7D8]/60 hover:bg-[#EDE7D8] rounded-full text-[13px] text-[#0B0F1A]/50 transition-colors border hairline"
                       onClick={() => setMostrarCrearPost(true)}
                     >
                       Comparte una actualización...
                     </button>
                     <button
-                      className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+                      className="p-2 hover:bg-[#EDE7D8] rounded-md text-[#0B0F1A]/40 transition-colors"
                       onClick={() => setMostrarCrearPost(true)}
                     >
                       <Sparkles className="w-4 h-4" />
                     </button>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
 
             {/* Posts — cargando */}
@@ -1099,19 +1147,19 @@ export function StudentDashboard() {
                           onClick={() => alternarLike(post.id)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex-1 justify-center ${
                             likesActivos.has(post.id)
-                              ? "text-[#2563EB] bg-[#DBEAFE]/50"
-                              : "text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50"
+                              ? "text-[#0B0F1A] bg-[#EDE7D8]/50"
+                              : "text-gray-500 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]/50"
                           }`}
                         >
-                          <ThumbsUp className={`w-3.5 h-3.5 ${likesActivos.has(post.id) ? "fill-[#2563EB]" : ""}`} />
-                          <span>{likesActivos.has(post.id) ? 1 : 0}</span>
+                          <ThumbsUp className={`w-3.5 h-3.5 ${likesActivos.has(post.id) ? "fill-[#0B0F1A]" : ""}`} />
+                          <span>{conteosLikes[post.id] ?? post._count.likes ?? 0}</span>
                         </button>
                         <button
                           onClick={() => toggleComentarios(post.id)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex-1 justify-center ${
                             comentariosAbiertos.has(post.id)
-                              ? "text-[#2563EB] bg-[#DBEAFE]/50"
-                              : "text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50"
+                              ? "text-[#0B0F1A] bg-[#EDE7D8]/50"
+                              : "text-gray-500 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]/50"
                           }`}
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
@@ -1119,7 +1167,7 @@ export function StudentDashboard() {
                         </button>
                         <button
                           onClick={() => compartirPost(post)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]/50 transition-all text-xs font-medium flex-1 justify-center"
                         >
                           <Share2 className="w-3.5 h-3.5" />
                           <span>Compartir</span>
@@ -1189,12 +1237,12 @@ export function StudentDashboard() {
                                 onChange={e => setTextosComentario(prev => ({ ...prev, [post.id]: e.target.value }))}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(post.id) } }}
                                 placeholder="Escribe un comentario..."
-                                className="flex-1 text-xs px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20"
+                                className="flex-1 text-xs px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-ink focus:ring-1 focus:ring-[#0B0F1A]/20"
                               />
                               <button
                                 onClick={() => enviarComentario(post.id)}
                                 disabled={!textosComentario[post.id]?.trim() || enviandoComentario.has(post.id)}
-                                className="p-1.5 rounded-xl bg-[#0F172A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2563EB] transition-colors"
+                                className="p-1.5 rounded-xl bg-[#0B0F1A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#161B2A] transition-colors"
                               >
                                 {enviandoComentario.has(post.id)
                                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1245,14 +1293,14 @@ export function StudentDashboard() {
                         <div className="flex gap-3">
                           <Avatar className="w-10 h-10 rounded-lg shrink-0">
                             {oferta.empresa.logoUrl && <AvatarImage src={oferta.empresa.logoUrl} />}
-                            <AvatarFallback className="rounded-lg bg-[#DBEAFE] text-[#0F172A] text-sm font-bold">
+                            <AvatarFallback className="rounded-lg bg-[#EDE7D8] text-[#0B0F1A] text-sm font-bold">
                               {oferta.empresa.nombre[0]}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-xs text-gray-900 line-clamp-1">{oferta.titulo}</p>
                             <p className="text-xs text-gray-500 mt-0.5">{oferta.empresa.nombre}</p>
-                            <p className="text-xs text-[#0F172A] mt-0.5">{oferta.especialidad}</p>
+                            <p className="text-xs text-[#0B0F1A] mt-0.5">{oferta.especialidad}</p>
                           </div>
                         </div>
                         {/* Botón Postular */}
@@ -1264,7 +1312,7 @@ export function StudentDashboard() {
                         ) : (
                           <Button
                             size="sm"
-                            className="w-full mt-2.5 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs rounded-lg h-7"
+                            className="w-full mt-2.5 bg-[#C94A2A] hover:bg-[#B33E22] text-white text-xs rounded-lg h-7"
                             onClick={() => postular(oferta.id)}
                             disabled={postulando === oferta.id}
                           >
@@ -1289,7 +1337,7 @@ export function StudentDashboard() {
               transition={{ duration: 0.4, delay: 0.25 }}
             >
               <Card
-                className={`border-0 shadow-sm transition-shadow ${notifPostulaciones > 0 ? "ring-2 ring-[#F97316]/40" : ""}`}
+                className={`border-0 shadow-sm transition-shadow ${notifPostulaciones > 0 ? "ring-2 ring-[#C94A2A]/40" : ""}`}
                 onClick={() => setNotifPostulaciones(0)}
               >
                 <CardContent className="p-5">
@@ -1297,7 +1345,7 @@ export function StudentDashboard() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-sm text-gray-900">Mis Postulaciones</h3>
                       {notifPostulaciones > 0 && (
-                        <span className="flex items-center gap-1 text-xs font-semibold text-white bg-[#F97316] px-2 py-0.5 rounded-full animate-pulse">
+                        <span className="flex items-center gap-1 text-xs font-semibold text-white bg-[#C94A2A] px-2 py-0.5 rounded-full animate-pulse">
                           {notifPostulaciones} nuevo{notifPostulaciones > 1 ? "s" : ""}
                         </span>
                       )}
@@ -1325,7 +1373,7 @@ export function StudentDashboard() {
                           key={p.id}
                           className={`p-3 rounded-xl border transition-colors ${
                             esNuevo
-                              ? "border-[#F97316]/30 bg-orange-50/60"
+                              ? "border-[#C94A2A]/30 bg-orange-50/60"
                               : "border-gray-100 bg-gray-50/60"
                           }`}
                         >
@@ -1335,10 +1383,10 @@ export function StudentDashboard() {
                               <p className="text-xs text-gray-500 mt-0.5">{p.oferta.empresa.nombre}</p>
                             </div>
                             {esNuevo && (
-                              <span className="shrink-0 w-2 h-2 rounded-full bg-[#F97316] mt-1" />
+                              <span className="shrink-0 w-2 h-2 rounded-full bg-[#C94A2A] mt-1" />
                             )}
                           </div>
-                          <div className="mt-2">
+                          <div className="mt-2 flex items-center justify-between gap-2">
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                               p.estado === "ACEPTADA"
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
@@ -1348,6 +1396,15 @@ export function StudentDashboard() {
                             }`}>
                               {p.estado === "ACEPTADA" ? "✓ Aceptada" : p.estado === "RECHAZADA" ? "✗ Rechazada" : "● Pendiente"}
                             </span>
+                            {p.estado === "PENDIENTE" && (
+                              <button
+                                onClick={() => retirarPostulacion(p.id, p.oferta.id)}
+                                className="text-[10px] text-gray-400 hover:text-red-500 transition-colors font-medium"
+                                title="Retirar postulación"
+                              >
+                                Retirar
+                              </button>
+                            )}
                           </div>
                         </div>
                       )
@@ -1366,11 +1423,11 @@ export function StudentDashboard() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                      <Mail className="w-4 h-4 text-[#F97316]" />
+                      <Mail className="w-4 h-4 text-[#C94A2A]" />
                       Mis Contactos
                     </h3>
                     {misContactos.length > 0 && (
-                      <span className="text-xs bg-[#F97316] text-white px-2 py-0.5 rounded-full font-semibold">
+                      <span className="text-xs bg-[#C94A2A] text-white px-2 py-0.5 rounded-full font-semibold">
                         {misContactos.length}
                       </span>
                     )}
@@ -1408,7 +1465,7 @@ export function StudentDashboard() {
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setMostrarCrearPost(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-[#F97316] hover:bg-[#EA580C] text-white rounded-full shadow-xl shadow-orange-900/30 flex items-center justify-center transition-colors"
+        className="fixed bottom-8 right-8 w-14 h-14 bg-[#C94A2A] hover:bg-[#B33E22] text-white rounded-full shadow-xl shadow-orange-900/30 flex items-center justify-center transition-colors"
       >
         <Plus className="w-6 h-6" />
       </motion.button>
@@ -1466,7 +1523,7 @@ export function StudentDashboard() {
                 Cancelar
               </Button>
               <Button
-                className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                className="bg-[#0B0F1A] hover:bg-[#161B2A] text-white"
                 onClick={agregarItem}
                 disabled={!nuevoNombre.trim() || guardandoItem}
               >
@@ -1517,7 +1574,7 @@ export function StudentDashboard() {
                     onClick={() => setEditTipoDisponibilidad(tipo)}
                     className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
                       editTipoDisponibilidad === tipo
-                        ? "bg-[#0F172A] text-white border-[#0F172A]"
+                        ? "bg-[#0B0F1A] text-white border-[#0B0F1A]"
                         : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
                     }`}
                   >
@@ -1531,7 +1588,7 @@ export function StudentDashboard() {
                 Cancelar
               </Button>
               <Button
-                className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                className="bg-[#0B0F1A] hover:bg-[#161B2A] text-white"
                 onClick={guardarPerfil}
                 disabled={guardandoPerfil}
               >
@@ -1621,7 +1678,7 @@ export function StudentDashboard() {
                 size="sm"
                 type="button"
                 onClick={() => refInputArchivo.current?.click()}
-                className="text-gray-500 hover:text-[#0F172A] gap-1.5"
+                className="text-gray-500 hover:text-[#0B0F1A] gap-1.5"
                 disabled={subiendoMedia || enviandoPost}
               >
                 <Paperclip className="w-4 h-4" />
@@ -1632,7 +1689,7 @@ export function StudentDashboard() {
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                  className="bg-[#0B0F1A] hover:bg-[#161B2A] text-white"
                   onClick={publicar}
                   disabled={!textoPost.trim() || enviandoPost || subiendoMedia}
                 >

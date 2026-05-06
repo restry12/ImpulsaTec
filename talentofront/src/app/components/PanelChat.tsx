@@ -162,7 +162,7 @@ export function PanelChat({ abierto, onCerrar, empresaId, autorActual, nombreCon
             className="fixed right-0 top-0 h-full w-[380px] max-w-full bg-white z-50 flex flex-col shadow-2xl"
           >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3.5 bg-[#0F172A] text-white shrink-0">
+            <div className="flex items-center gap-3 px-4 py-3.5 bg-[#0B0F1A] text-white shrink-0">
               <Avatar className="w-9 h-9 border-2 border-white/20">
                 {logoContraparte && <AvatarImage src={logoContraparte} />}
                 <AvatarFallback className="bg-white/20 text-white text-xs font-bold">
@@ -202,8 +202,8 @@ export function PanelChat({ abierto, onCerrar, empresaId, autorActual, nombreCon
                     <div key={m.id} className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
                         esMio
-                          ? 'bg-[#F97316] text-white rounded-br-sm'
-                          : 'bg-[#0F172A] text-white rounded-bl-sm'
+                          ? 'bg-[#C94A2A] text-white rounded-br-sm'
+                          : 'bg-[#0B0F1A] text-white rounded-bl-sm'
                       }`}>
                         <p>{m.contenido}</p>
                         <p className={`text-xs mt-1 ${esMio ? 'text-white/60' : 'text-white/50'} text-right`}>
@@ -226,7 +226,7 @@ export function PanelChat({ abierto, onCerrar, empresaId, autorActual, nombreCon
                   onKeyDown={alPresionarTecla}
                   placeholder="Escribe un mensaje... (Enter para enviar)"
                   rows={1}
-                  className="flex-1 resize-none rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]/40 focus:border-[#F97316] min-h-[40px] max-h-[120px] overflow-y-auto"
+                  className="flex-1 resize-none rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C94A2A]/40 focus:border-[#C94A2A] min-h-[40px] max-h-[120px] overflow-y-auto"
                   style={{ height: 'auto' }}
                   onInput={e => {
                     const el = e.currentTarget
@@ -237,7 +237,7 @@ export function PanelChat({ abierto, onCerrar, empresaId, autorActual, nombreCon
                 <Button
                   onClick={enviar}
                   disabled={!texto.trim() || enviando}
-                  className="bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl h-10 w-10 p-0 shrink-0"
+                  className="bg-[#C94A2A] hover:bg-[#B33E22] text-white rounded-xl h-10 w-10 p-0 shrink-0"
                 >
                   {enviando
                     ? <Loader2 className="w-4 h-4 animate-spin" />

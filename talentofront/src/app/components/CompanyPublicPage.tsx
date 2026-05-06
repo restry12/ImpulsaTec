@@ -106,7 +106,7 @@ export function CompanyPublicPage() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F6F3EC] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-gray-400">
           <Loader2 className="w-8 h-8 animate-spin" />
           <p className="text-sm">Cargando perfil de empresa...</p>
@@ -117,7 +117,7 @@ export function CompanyPublicPage() {
 
   if (error || !empresa) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F6F3EC] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-gray-400">
           <AlertCircle className="w-8 h-8" />
           <p className="text-sm font-medium">Empresa no encontrada</p>
@@ -130,10 +130,10 @@ export function CompanyPublicPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F6F3EC]">
 
       {/* ── NAVBAR ─────────────────────────────────────── */}
-      <nav className="bg-[#0F172A] text-white px-6 py-3.5 sticky top-0 z-50 shadow-lg">
+      <nav className="bg-[#0B0F1A] text-white px-6 py-3.5 sticky top-0 z-50 shadow-lg">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -174,7 +174,7 @@ export function CompanyPublicPage() {
                 <div className="sm:mb-1 min-w-0 flex-1">
                   <h1 className="text-xl font-bold text-gray-900 leading-tight">{empresa.nombre}</h1>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs bg-[#DBEAFE] text-[#0F172A] border-0">
+                    <Badge variant="secondary" className="text-xs bg-[#DBEAFE] text-[#0B0F1A] border-0">
                       {empresa.rubro}
                     </Badge>
                     <span className="flex items-center gap-1 text-xs text-gray-400">
@@ -202,7 +202,7 @@ export function CompanyPublicPage() {
           transition={{ duration: 0.4, delay: 0.15 }}
         >
           <div className="flex items-center gap-2 mb-3">
-            <Briefcase className="w-5 h-5 text-[#F97316]" />
+            <Briefcase className="w-5 h-5 text-[#C94A2A]" />
             <h2 className="text-base font-bold text-gray-900">Ofertas de pasantía</h2>
             <Badge variant="secondary" className="text-xs ml-1">{empresa.ofertas.length}</Badge>
           </div>
@@ -234,7 +234,7 @@ export function CompanyPublicPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1.5">
                               <h3 className="text-sm font-bold text-gray-900">{oferta.titulo}</h3>
-                              <Badge className="text-xs bg-[#DBEAFE] text-[#0F172A] border-0 hover:bg-[#DBEAFE]">
+                              <Badge className="text-xs bg-[#DBEAFE] text-[#0B0F1A] border-0 hover:bg-[#DBEAFE]">
                                 {oferta.especialidad}
                               </Badge>
                             </div>
@@ -267,7 +267,7 @@ export function CompanyPublicPage() {
                                   size="sm"
                                   onClick={() => postular(oferta.id)}
                                   disabled={estaPostulando}
-                                  className="bg-[#F97316] hover:bg-[#EA580C] text-white h-8 text-xs rounded-xl px-4"
+                                  className="bg-[#C94A2A] hover:bg-[#B33E22] text-white h-8 text-xs rounded-xl px-4"
                                 >
                                   {estaPostulando
                                     ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />

@@ -109,7 +109,7 @@ const gradienteAvatar = (nombre: string) =>
   gradientesAvatar[nombre.charCodeAt(0) % gradientesAvatar.length]
 
 const seccionesMenu = [
-  { icon: LayoutDashboard, label: "Dashboard", color: "text-[#0F172A]" },
+  { icon: LayoutDashboard, label: "Dashboard", color: "text-[#0B0F1A]" },
   { icon: Users, label: "Estudiantes", color: "text-blue-600" },
   { icon: CheckSquare, label: "Validaciones", color: "text-emerald-600" },
   { icon: Briefcase, label: "Postulaciones", color: "text-amber-600" },
@@ -581,7 +581,7 @@ export function SchoolAdminPanel() {
       label: "Empresas conectadas",
       valor: empresasCargadas ? `${empresas.length}` : "—",
       icon: TrendingUp,
-      color: "bg-[#DBEAFE] text-[#0F172A]",
+      color: "bg-[#EDE7D8] text-[#0B0F1A]",
       borde: "border-blue-100",
     },
     {
@@ -594,145 +594,122 @@ export function SchoolAdminPanel() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#EDE7D8] flex">
 
-      {/* ── NAVBAR ─────────────────────────────────────────── */}
-      <nav className="bg-[#0F172A] text-white px-6 py-3.5 sticky top-0 z-50 shadow-lg">
-        <div className="max-w-full mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <button className="lg:hidden p-1.5 hover:bg-white/10 rounded-lg">
-              <Menu className="w-5 h-5" />
-            </button>
-            <Link to="/">
-              <img src={logoImage} alt="ImpulsaTec" className="h-9 bg-white rounded-lg px-2 py-1" />
-            </Link>
-            <div className="hidden sm:flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
-              <span className="text-sm text-white/70 font-medium">Panel Administrativo</span>
-            </div>
-          </div>
-          <div className="flex-1 max-w-sm mx-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-              <Input
-                placeholder="Buscar estudiante..."
-                className="pl-9 bg-white/10 border-white/15 text-white placeholder:text-white/40 text-sm h-9 rounded-lg"
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-              />
-            </div>
-          </div>
+      {/* ── SIDEBAR OSCURO ─────────────────────────────────── */}
+      <aside className="hidden lg:flex flex-col w-[240px] shrink-0 bg-[#0B0F1A] sticky top-0 h-screen z-40">
+        {/* Logo */}
+        <div className="px-5 py-5 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <button className="relative p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-              <Bell className="w-5 h-5" />
-              {estudiantes.length > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-[#F97316] rounded-full" />
-              )}
-            </button>
-
-            {/* Avatar con menú */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold cursor-pointer hover:bg-white/30 transition-colors">
-                  IT
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <div className="px-3 py-2 text-sm font-medium text-gray-900">Administrador</div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="cursor-pointer text-red-600 focus:text-red-600"
-                  onClick={cerrarSesionYRedirigir}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Cerrar sesión
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <img src={logoImage} alt="Cardenal Caro" className="h-9 bg-white rounded px-1.5 py-0.5 border border-white/20 shrink-0" />
+            <div>
+              <div className="font-display text-[18px] text-[#F6F3EC] leading-none">ImpulsaTec</div>
+              <div className="smallcaps text-[9px] text-white/50 mt-0.5">Panel Administrador</div>
+            </div>
           </div>
         </div>
-      </nav>
-
-      <div className="flex">
-        {/* ── MENÚ LATERAL ────────────────────────────────── */}
-        <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-gray-100 min-h-[calc(100vh-56px)] sticky top-[56px] shadow-sm">
-          <nav className="p-3 space-y-1 flex-1">
-            {seccionesMenu.map((item, i) => (
-              <motion.button
-                key={item.label}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: i * 0.05 }}
-                onClick={() => setSeccionActiva(item.label)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium ${
-                  seccionActiva === item.label
-                    ? "bg-[#0F172A] text-white shadow-md shadow-blue-900/20"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                <div className={`p-1 rounded-lg ${seccionActiva === item.label ? "bg-white/20" : "bg-gray-100"}`}>
-                  <item.icon className={`w-4 h-4 ${seccionActiva === item.label ? "text-white" : item.color}`} />
-                </div>
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.label === 'Mensajes' && totalMensajesNoLeidos > 0 && (
-                  <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
-                    {totalMensajesNoLeidos}
-                  </span>
-                )}
-                {item.label === 'DMs Estudiantes' && dmsBadge > 0 && (
-                  <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
-                    {dmsBadge}
-                  </span>
-                )}
-              </motion.button>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center">ImpulsaTec v1.0</p>
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          {seccionesMenu.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => setSeccionActiva(item.label)}
+              className={`w-full flex items-center gap-3 px-3 h-10 rounded-md text-[13px] font-medium transition-colors ${
+                seccionActiva === item.label
+                  ? "bg-[#C94A2A] text-[#F6F3EC]"
+                  : "text-white/65 hover:text-[#F6F3EC] hover:bg-white/8"
+              }`}
+            >
+              <item.icon className={`w-4 h-4 shrink-0 ${seccionActiva === item.label ? "text-[#F6F3EC]" : "text-white/50"}`} />
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.label === 'Mensajes' && totalMensajesNoLeidos > 0 && (
+                <span className="text-[10.5px] text-[#C94A2A] font-medium font-mono-data">{totalMensajesNoLeidos}</span>
+              )}
+              {item.label === 'DMs Estudiantes' && dmsBadge > 0 && (
+                <span className="text-[10.5px] text-[#C94A2A] font-medium font-mono-data">{dmsBadge}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+        {/* Bottom: logout */}
+        <div className="px-3 py-4 border-t border-white/10">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-9 h-9 rounded-md bg-[#C94A2A] flex items-center justify-center font-display text-[#F6F3EC] text-[15px] shrink-0">A</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12.5px] font-medium text-[#F6F3EC] truncate">Administrador</div>
+              <div className="smallcaps text-[9px] text-white/50">Colegio</div>
+            </div>
+            <button onClick={cerrarSesionYRedirigir} className="p-1.5 text-white/40 hover:text-white transition-colors" title="Cerrar sesión">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
-        </aside>
+        </div>
+      </aside>
+
+      {/* ── COLUMNA PRINCIPAL ─────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Header bar */}
+        <header className="sticky top-0 z-30 bg-[#FBFAF6]/90 backdrop-blur-md border-b hairline h-[60px] flex items-center px-6 gap-4">
+          <button className="lg:hidden p-1.5 hover:bg-[#EDE7D8] rounded-md transition-colors" onClick={() => {}}>
+            <Menu className="w-5 h-5 text-[#0B0F1A]" />
+          </button>
+          <div className="font-display text-[22px] text-[#0B0F1A] leading-none flex-1">{seccionActiva}</div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0B0F1A]/40" />
+            <input
+              placeholder="Buscar estudiante..."
+              className="pl-9 pr-3 h-9 bg-[#EDE7D8]/60 border hairline rounded-full text-[13px] w-[220px] outline-none focus:border-[#0B0F1A]/30"
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+            />
+          </div>
+          <button className="relative p-1.5 hover:bg-[#EDE7D8] rounded-md transition-colors">
+            <Bell className="w-5 h-5 text-[#0B0F1A]" />
+            {estudiantes.length > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#C94A2A] rounded-full" />
+            )}
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="w-8 h-8 rounded-md bg-[#0B0F1A] flex items-center justify-center font-display text-[#F6F3EC] text-sm cursor-pointer hover:bg-[#161B2A] transition-colors">A</div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <div className="px-3 py-2 text-sm font-medium text-gray-900">Administrador</div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600" onClick={cerrarSesionYRedirigir}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Cerrar sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
 
         {/* ── CONTENIDO PRINCIPAL ─────────────────────────── */}
-        <main className="flex-1 p-5 min-w-0">
+        <main className="flex-1 p-6 min-w-0">
 
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-gray-900">{seccionActiva}</h2>
-            <p className="text-sm text-gray-500">
-              {seccionActiva === "Dashboard" && "Resumen general del sistema"}
-              {seccionActiva === "Estudiantes" && "Gestiona los estudiantes registrados"}
-              {seccionActiva === "Validaciones" && "Valida competencias y disponibilidad"}
-              {seccionActiva === "Postulaciones" && "Gestiona las postulaciones de pasantía"}
-              {seccionActiva === "Empresas" && "Empresas registradas en la plataforma"}
-              {seccionActiva === "Novedades" && "Anuncios y novedades del colegio"}
-              {seccionActiva === "Mensajes" && "Conversaciones con empresas de la plataforma"}
-              {seccionActiva === "DMs Estudiantes" && "Mensajes directos con estudiantes"}
-              {seccionActiva === "Métricas" && "Estadísticas y reportes"}
-            </p>
+          <div className="mb-6">
+            <div className="smallcaps text-[11px] font-semibold text-[#0B0F1A]/50 mb-1">
+              {seccionActiva === "Dashboard" && "Centro Educacional Cardenal José María Caro"}
+              {seccionActiva === "Estudiantes" && "Directorio"}
+              {seccionActiva === "Validaciones" && "Competencias"}
+              {seccionActiva === "Postulaciones" && "Pasantías"}
+              {seccionActiva === "Empresas" && "Red Empresarial"}
+              {seccionActiva === "Novedades" && "Comunicaciones"}
+              {seccionActiva === "Mensajes" && "Mensajería"}
+              {seccionActiva === "DMs Estudiantes" && "Mensajes Directos"}
+              {seccionActiva === "Métricas" && "Reportes"}
+            </div>
+            <h2 className="font-display text-[40px] leading-tight text-[#0B0F1A]">{seccionActiva}</h2>
           </div>
 
           {/* Estadísticas */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 border hairline bg-[#FBFAF6] rounded-lg overflow-hidden mb-6">
             {statCards.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.07 }}
-              >
-                <Card className={`border ${stat.borde} shadow-sm hover:shadow-md transition-shadow`}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-xs text-gray-500 font-medium mb-1">{stat.label}</p>
-                        <p className="text-2xl font-bold text-gray-900">{stat.valor}</p>
-                      </div>
-                      <div className={`p-2 rounded-xl ${stat.color}`}>
-                        <stat.icon className="w-5 h-5" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              <div key={stat.label} className={`p-5 ${i > 0 ? "border-l hairline" : ""}`}>
+                <div className="smallcaps text-[10px] text-[#0B0F1A]/55 mb-2">{stat.label}</div>
+                <div className="font-display text-[48px] leading-none text-[#0B0F1A]">{stat.valor}</div>
+              </div>
             ))}
           </div>
 
@@ -743,17 +720,16 @@ export function SchoolAdminPanel() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
-              <Card className="border border-gray-100 shadow-sm">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2">
-                    <Briefcase className="w-5 h-5 text-amber-600" />
-                    <span className="text-base font-bold text-gray-900">Postulaciones</span>
-                    {postulacionesCargadas && (
-                      <Badge variant="secondary" className="text-xs ml-1">{postulaciones.length}</Badge>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
+              <div className="bg-[#FBFAF6] border hairline rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b hairline flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="smallcaps text-[10.5px] text-[#0B0F1A]/50">Pasantías</div>
+                    <div className="font-display text-[22px] leading-tight text-[#0B0F1A]">
+                      Postulaciones {postulacionesCargadas && <span className="font-mono-data text-[14px] text-[#0B0F1A]/50">{postulaciones.length}</span>}
+                    </div>
+                  </div>
+                </div>
+                <div>
                   {cargandoPostulaciones && (
                     <div className="p-8 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" /> Cargando postulaciones...
@@ -768,7 +744,7 @@ export function SchoolAdminPanel() {
                   {postulacionesCargadas && postulaciones.length > 0 && (
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-gray-50/70 hover:bg-gray-50/70">
+                        <TableRow className="bg-[#F6F3EC]/70 hover:bg-[#F6F3EC]/70">
                           <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide pl-5">Estudiante</TableHead>
                           <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Oferta</TableHead>
                           <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Empresa</TableHead>
@@ -783,7 +759,7 @@ export function SchoolAdminPanel() {
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.3, delay: i * 0.04 }}
-                            className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
+                            className="border-b border-gray-50 hover:bg-[#F6F3EC]/60 transition-colors"
                           >
                             <TableCell className="pl-5 py-3">
                               <div className="flex items-center gap-3">
@@ -855,8 +831,8 @@ export function SchoolAdminPanel() {
                       </TableBody>
                     </Table>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -867,17 +843,14 @@ export function SchoolAdminPanel() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
-              <Card className="border border-gray-100 shadow-sm">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-indigo-600" />
-                    <span className="text-base font-bold text-gray-900">Empresas</span>
-                    {empresasCargadas && (
-                      <Badge variant="secondary" className="text-xs ml-1">{empresas.length}</Badge>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
+              <div className="bg-[#FBFAF6] border hairline rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b hairline">
+                  <div className="smallcaps text-[10.5px] text-[#0B0F1A]/50">Red Empresarial</div>
+                  <div className="font-display text-[22px] leading-tight text-[#0B0F1A]">
+                    Empresas {empresasCargadas && <span className="font-mono-data text-[14px] text-[#0B0F1A]/50">{empresas.length}</span>}
+                  </div>
+                </div>
+                <div>
                   {cargandoEmpresas && (
                     <div className="p-8 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" /> Cargando empresas...
@@ -892,7 +865,7 @@ export function SchoolAdminPanel() {
                   {empresasCargadas && empresas.length > 0 && (
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-gray-50/70 hover:bg-gray-50/70">
+                        <TableRow className="bg-[#F6F3EC]/70 hover:bg-[#F6F3EC]/70">
                           <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide pl-5">Empresa</TableHead>
                           <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Rubro</TableHead>
                           <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ofertas activas</TableHead>
@@ -906,7 +879,7 @@ export function SchoolAdminPanel() {
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.3, delay: i * 0.04 }}
-                            className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
+                            className="border-b border-gray-50 hover:bg-[#F6F3EC]/60 transition-colors"
                           >
                             <TableCell className="pl-5 py-3">
                               <div className="flex items-center gap-3">
@@ -922,7 +895,7 @@ export function SchoolAdminPanel() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <span className="text-xs bg-[#DBEAFE] text-[#0F172A] px-2.5 py-1 rounded-full font-medium">
+                              <span className="text-xs bg-[#EDE7D8] text-[#0B0F1A] px-2.5 py-1 rounded-full font-medium">
                                 {emp.rubro}
                               </span>
                             </TableCell>
@@ -930,7 +903,7 @@ export function SchoolAdminPanel() {
                               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                                 emp.ofertas.length > 0
                                   ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                                  : "bg-gray-100 text-gray-400 border border-gray-200"
+                                  : "bg-[#EDE7D8] text-gray-400 border border-gray-200"
                               }`}>
                                 {emp.ofertas.length} {emp.ofertas.length === 1 ? "oferta" : "ofertas"}
                               </span>
@@ -951,8 +924,8 @@ export function SchoolAdminPanel() {
                       </TableBody>
                     </Table>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -963,7 +936,7 @@ export function SchoolAdminPanel() {
                 <p className="text-sm text-gray-500">Publica anuncios visibles para toda la comunidad.</p>
                 <Button
                   onClick={() => setMostrarCrearNovedad(true)}
-                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white gap-1.5"
+                  className="bg-[#0B0F1A] hover:bg-\[#161B2A\] text-white gap-1.5"
                   size="sm"
                 >
                   <Plus className="w-4 h-4" />
@@ -1015,7 +988,7 @@ export function SchoolAdminPanel() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                            <button className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-[#EDE7D8] transition-colors">
                               <MoreVertical className="w-4 h-4" />
                             </button>
                           </DropdownMenuTrigger>
@@ -1049,8 +1022,8 @@ export function SchoolAdminPanel() {
                           onClick={() => toggleComentarios(novedad.id)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex-1 justify-center ${
                             comentariosAbiertos.has(novedad.id)
-                              ? "text-[#2563EB] bg-[#DBEAFE]/50"
-                              : "text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50"
+                              ? "text-[#0B0F1A] bg-[#EDE7D8]/50"
+                              : "text-gray-500 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]/50"
                           }`}
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
@@ -1083,7 +1056,7 @@ export function SchoolAdminPanel() {
                                   {fotoC && <AvatarImage src={fotoC} />}
                                   <AvatarFallback className="text-xs">{nombreC[0]}</AvatarFallback>
                                 </Avatar>
-                                <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
+                                <div className="flex-1 bg-[#F6F3EC] rounded-xl px-3 py-2">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-semibold text-gray-800">{nombreC}</span>
                                     <div className="flex items-center gap-1">
@@ -1112,12 +1085,12 @@ export function SchoolAdminPanel() {
                                 onChange={e => setTextosComentario(prev => ({ ...prev, [novedad.id]: e.target.value }))}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(novedad.id) } }}
                                 placeholder="Escribe un comentario..."
-                                className="flex-1 text-xs px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20"
+                                className="flex-1 text-xs px-3 py-1.5 bg-[#F6F3EC] rounded-xl border border-gray-200 focus:outline-none focus:border-[#0B0F1A] focus:ring-1 focus:ring-[#0B0F1A]/20"
                               />
                               <button
                                 onClick={() => enviarComentario(novedad.id)}
                                 disabled={!textosComentario[novedad.id]?.trim() || enviandoComentario.has(novedad.id)}
-                                className="p-1.5 rounded-xl bg-[#0F172A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2563EB] transition-colors"
+                                className="p-1.5 rounded-xl bg-[#0B0F1A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-\[#161B2A\] transition-colors"
                               >
                                 {enviandoComentario.has(novedad.id)
                                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1178,7 +1151,7 @@ export function SchoolAdminPanel() {
                           ))
                           setTotalMensajesNoLeidos(prev => Math.max(0, prev - hilo._count.mensajes))
                         }}
-                        className="w-full flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:border-[#F97316]/30 hover:shadow-sm transition-all text-left"
+                        className="w-full flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:border-[#C94A2A]/30 hover:shadow-sm transition-all text-left"
                       >
                         <Avatar className="w-10 h-10 shrink-0">
                           {hilo.logoUrl && <AvatarImage src={hilo.logoUrl} />}
@@ -1204,7 +1177,7 @@ export function SchoolAdminPanel() {
                           )}
                         </div>
                         {tieneNoLeidos && (
-                          <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none shrink-0">
+                          <span className="bg-[#C94A2A] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none shrink-0">
                             {hilo._count.mensajes}
                           </span>
                         )}
@@ -1275,7 +1248,7 @@ export function SchoolAdminPanel() {
                           </p>
                         </div>
                         {tieneNoLeidos && (
-                          <span className="bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none shrink-0">
+                          <span className="bg-[#C94A2A] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none shrink-0">
                             {hilo.noLeidos}
                           </span>
                         )}
@@ -1298,7 +1271,7 @@ export function SchoolAdminPanel() {
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Users className="w-5 h-5 text-[#0F172A]" />
+                    <Users className="w-5 h-5 text-[#0B0F1A]" />
                     <span className="text-base font-bold text-gray-900">Gestión de Estudiantes</span>
                     {!cargando && (
                       <Badge variant="secondary" className="text-xs ml-1">
@@ -1308,7 +1281,7 @@ export function SchoolAdminPanel() {
                   </div>
                   {/* + Agregar → redirige al registro */}
                   <Button
-                    className="bg-[#F97316] hover:bg-[#EA580C] text-white text-sm rounded-lg h-8 px-4"
+                    className="bg-[#C94A2A] hover:bg-[#B33E22] text-white text-sm rounded-lg h-8 px-4"
                     onClick={() => navegar("/registro")}
                   >
                     + Agregar
@@ -1317,7 +1290,25 @@ export function SchoolAdminPanel() {
               </CardHeader>
               <CardContent className="p-0">
                 {cargando && (
-                  <div className="p-8 text-center text-gray-400 text-sm">Cargando estudiantes...</div>
+                  <div className="divide-y divide-gray-50">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-4 px-5 py-4">
+                        <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 bg-gray-200 rounded animate-pulse w-36" />
+                          <div className="h-3 bg-gray-100 rounded animate-pulse w-24" />
+                        </div>
+                        <div className="hidden md:block h-6 bg-gray-200 rounded-full animate-pulse w-24" />
+                        <div className="hidden md:flex gap-1">
+                          {[...Array(2)].map((_, j) => (
+                            <div key={j} className="w-6 h-6 rounded-full bg-gray-200 animate-pulse" />
+                          ))}
+                        </div>
+                        <div className="h-6 bg-gray-200 rounded-full animate-pulse w-16 hidden md:block" />
+                        <div className="h-8 bg-gray-200 rounded-lg animate-pulse w-24 ml-auto" />
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {!cargando && estudiantesFiltrados.length === 0 && (
                   <div className="p-10 text-center text-gray-400">
@@ -1328,87 +1319,135 @@ export function SchoolAdminPanel() {
                   </div>
                 )}
                 {!cargando && estudiantesFiltrados.length > 0 && (
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50/70 hover:bg-gray-50/70">
-                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide pl-5">Estudiante</TableHead>
-                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Especialidad</TableHead>
-                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Certificaciones</TableHead>
-                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</TableHead>
-                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right pr-5">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {estudiantesFiltrados.map((est, i) => (
-                        <motion.tr
-                          key={est.id}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.3, delay: i * 0.04 }}
-                          className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors"
-                        >
-                          <TableCell className="pl-5 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${gradienteAvatar(est.nombre)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
-                                {est.nombre[0]}{est.apellido[0]}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-sm text-gray-900">{est.nombre} {est.apellido}</p>
-                                <p className="text-xs text-gray-400">{est.colegio.nombre.split(" ").slice(0,3).join(" ")}…</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-xs bg-[#DBEAFE] text-[#0F172A] px-2.5 py-1 rounded-full font-medium">
-                              {est.especialidad}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1 items-center">
-                              {est.certificaciones.length > 0 ? (
-                                <>
-                                  {est.certificaciones.slice(0, 3).map(cert => (
-                                    <div
-                                      key={cert.id}
-                                      className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm"
-                                      title={cert.nombre}
-                                    >
-                                      <CheckSquare className="w-3.5 h-3.5 text-white" />
-                                    </div>
-                                  ))}
-                                  {est.certificaciones.length > 3 && (
-                                    <span className="text-xs text-gray-400 ml-1">+{est.certificaciones.length - 3}</span>
-                                  )}
-                                </>
-                              ) : (
-                                <span className="text-xs text-gray-300">Sin certificar</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                              est.disponible
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-gray-100 text-gray-500 border border-gray-200"
-                            }`}>
-                              {est.disponible ? "● Disponible" : "En pasantía"}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right pr-5">
-                            {/* Validar → abre dialog controlado */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs rounded-lg border-gray-200 hover:border-[#0F172A] hover:text-[#0F172A]"
-                              onClick={() => abrirValidar(est)}
+                  <>
+                    {/* ── Vista tabla (desktop) ─────────────────────── */}
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-[#F6F3EC]/70 hover:bg-[#F6F3EC]/70">
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide pl-5">Estudiante</TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Especialidad</TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Certificaciones</TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right pr-5">Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {estudiantesFiltrados.map((est, i) => (
+                            <motion.tr
+                              key={est.id}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.3, delay: i * 0.04 }}
+                              className="border-b border-gray-50 hover:bg-[#F6F3EC]/60 transition-colors"
                             >
-                              Validar
-                            </Button>
-                          </TableCell>
-                        </motion.tr>
+                              <TableCell className="pl-5 py-3">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${gradienteAvatar(est.nombre)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                                    {est.nombre[0]}{est.apellido[0]}
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-sm text-gray-900">{est.nombre} {est.apellido}</p>
+                                    <p className="text-xs text-gray-400">{est.colegio.nombre.split(" ").slice(0,3).join(" ")}…</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-xs bg-[#EDE7D8] text-[#0B0F1A] px-2.5 py-1 rounded-full font-medium">
+                                  {est.especialidad}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1 items-center">
+                                  {est.certificaciones.length > 0 ? (
+                                    <>
+                                      {est.certificaciones.slice(0, 3).map(cert => (
+                                        <div
+                                          key={cert.id}
+                                          className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm"
+                                          title={cert.nombre}
+                                        >
+                                          <CheckSquare className="w-3.5 h-3.5 text-white" />
+                                        </div>
+                                      ))}
+                                      {est.certificaciones.length > 3 && (
+                                        <span className="text-xs text-gray-400 ml-1">+{est.certificaciones.length - 3}</span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-gray-300">Sin certificar</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                                  est.disponible
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-[#EDE7D8] text-gray-500 border border-gray-200"
+                                }`}>
+                                  {est.disponible ? "● Disponible" : "En pasantía"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right pr-5">
+                                {/* Validar → abre dialog controlado */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs rounded-lg border-gray-200 hover:border-[#0B0F1A] hover:text-[#0B0F1A]"
+                                  onClick={() => abrirValidar(est)}
+                                >
+                                  Validar
+                                </Button>
+                              </TableCell>
+                            </motion.tr>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* ── Vista cards (móvil) ───────────────────────── */}
+                    <div className="md:hidden divide-y divide-gray-50">
+                      {estudiantesFiltrados.map((est, i) => (
+                        <motion.div
+                          key={est.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25, delay: i * 0.03 }}
+                          className="flex items-center gap-3 px-4 py-3"
+                        >
+                          {/* Avatar */}
+                          <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradienteAvatar(est.nombre)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                            {est.nombre[0]}{est.apellido[0]}
+                          </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 truncate">{est.nombre} {est.apellido}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className="text-[10px] bg-[#EDE7D8] text-[#0B0F1A] px-2 py-0.5 rounded-full font-medium">
+                                {est.especialidad}
+                              </span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                est.disponible
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {est.disponible ? 'Disponible' : 'No disponible'}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Botón Validar — mismo onClick que en la tabla */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs rounded-lg border-gray-200 hover:border-[#0B0F1A] hover:text-[#0B0F1A] shrink-0"
+                            onClick={() => abrirValidar(est)}
+                          >
+                            Validar
+                          </Button>
+                        </motion.div>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -1452,7 +1491,7 @@ export function SchoolAdminPanel() {
             )}
 
             {archivoMedia && !previewUrl && (
-              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-700">
+              <div className="flex items-center gap-2 bg-[#F6F3EC] rounded-xl px-3 py-2 text-sm text-gray-700">
                 <ImageIcon className="w-4 h-4 text-gray-400 shrink-0" />
                 <span className="truncate flex-1">{archivoMedia.name}</span>
                 <button onClick={quitarMedia} className="text-gray-400 hover:text-gray-600">
@@ -1482,7 +1521,7 @@ export function SchoolAdminPanel() {
                 size="sm"
                 type="button"
                 onClick={() => refInputArchivo.current?.click()}
-                className="text-gray-500 hover:text-[#0F172A] gap-1.5"
+                className="text-gray-500 hover:text-[#0B0F1A] gap-1.5"
                 disabled={subiendoMedia || enviandoNovedad}
               >
                 <Paperclip className="w-4 h-4" />
@@ -1493,7 +1532,7 @@ export function SchoolAdminPanel() {
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                  className="bg-[#0B0F1A] hover:bg-\[#161B2A\] text-white"
                   onClick={publicarNovedad}
                   disabled={!textoNovedad.trim() || enviandoNovedad || subiendoMedia}
                 >
@@ -1550,7 +1589,7 @@ export function SchoolAdminPanel() {
                         className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
                           validacionesHab[hab.id]
                             ? "bg-blue-50 border-blue-200"
-                            : "bg-gray-50 border-gray-100"
+                            : "bg-[#F6F3EC] border-gray-100"
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
@@ -1585,7 +1624,7 @@ export function SchoolAdminPanel() {
                         className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
                           validacionesCert[cert.id]
                             ? "bg-emerald-50 border-emerald-200"
-                            : "bg-gray-50 border-gray-100"
+                            : "bg-[#F6F3EC] border-gray-100"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -1609,7 +1648,7 @@ export function SchoolAdminPanel() {
 
               {/* Disponibilidad */}
               <div className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
-                disponibleEdit ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-100"
+                disponibleEdit ? "bg-emerald-50 border-emerald-200" : "bg-[#F6F3EC] border-gray-100"
               }`}>
                 <div>
                   <p className="text-sm font-medium text-gray-800">Disponible para pasantía</p>
@@ -1620,7 +1659,7 @@ export function SchoolAdminPanel() {
 
               <div className="flex gap-3 pt-1">
                 <Button
-                  className="flex-1 bg-[#0F172A] hover:bg-[#2563EB] text-white rounded-xl"
+                  className="flex-1 bg-[#0B0F1A] hover:bg-\[#161B2A\] text-white rounded-xl"
                   onClick={guardarValidacion}
                   disabled={guardando || enviandoDM}
                 >

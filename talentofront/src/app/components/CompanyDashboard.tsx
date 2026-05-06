@@ -7,7 +7,8 @@ import {
   TrendingUp, SlidersHorizontal, X, LogOut, Award, CheckCircle, Mail,
   Plus, Loader2, ToggleLeft, ToggleRight, Users, Pencil,
   Home, ThumbsUp, Share2, Paperclip, ImageIcon,
-  MessageCircle, Trash2, MoreVertical, Send, GraduationCap, Star, Briefcase
+  MessageCircle, Trash2, MoreVertical, Send, GraduationCap, Star, Briefcase,
+  Menu
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
@@ -24,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useAuth } from "../context/AuthContext";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
 import { Progress } from "./ui/progress";
+import { Sheet, SheetContent, SheetTrigger } from './ui/sheet'
 import { subirMedia } from "../../lib/supabase";
 
 type Habilidad = { id: number; nombre: string; validada: boolean }
@@ -143,6 +145,8 @@ export function CompanyDashboard() {
   const [panelDMsAbierto, setPanelDMsAbierto] = useState(false)
   const [dmHiloInicial, setDmHiloInicial] = useState<number | null>(null)
   const [dmsBadge, setDmsBadge] = useState(0)
+  // Menú hamburguesa en móvil
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
   // Ver postulantes de una oferta
   const [ofertaPostulantesId, setOfertaPostulantesId] = useState<number | null>(null)
   const [postulantes, setPostulantes] = useState<PostulanteOferta[]>([])
@@ -251,9 +255,10 @@ export function CompanyDashboard() {
         const actualizado = await res.json()
         setPerfil(prev => prev ? { ...prev, descripcion: actualizado.descripcion, logoUrl: actualizado.logoUrl, rubro: actualizado.rubro } : prev)
         setMostrarEditarPerfil(false)
+        toast.success('Perfil actualizado')
       }
     } catch {
-      // Error de red
+      toast.error('No se pudo guardar el perfil')
     } finally {
       setGuardandoPerfil(false)
     }
@@ -294,9 +299,10 @@ export function CompanyDashboard() {
         setNuevaTitulo("")
         setNuevaDescripcion("")
         setNuevaEspecialidad("")
+        toast.success('Oferta creada correctamente')
       }
     } catch {
-      // Error de red
+      toast.error('No se pudo crear la oferta')
     } finally {
       setGuardandoOferta(false)
     }
@@ -320,9 +326,10 @@ export function CompanyDashboard() {
         } else {
           setPerfil(prev => prev ? { ...prev, ofertas: prev.ofertas.filter(o => o.id !== oferta.id) } : prev)
         }
+        toast.success(oferta.activa ? 'Oferta cerrada' : 'Oferta activada')
       }
     } catch {
-      // Error de red
+      toast.error('No se pudo cambiar el estado de la oferta')
     } finally {
       setToggling(null)
     }
@@ -480,71 +487,124 @@ export function CompanyDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#EDE7D8]">
 
-      {/* ── NAVBAR ─────────────────────────────────────────── */}
-      <nav className="bg-[#0F172A] text-white px-6 py-3.5 sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      {/* ── NAVBAR EDITORIAL ───────────────────────────────── */}
+      <nav className="bg-[#FBFAF6]/90 backdrop-blur-md border-b hairline sticky top-0 z-40">
+        <div className="max-w-[1240px] mx-auto px-6 h-[60px] flex items-center justify-between gap-4">
           <div className="flex items-center gap-6">
-            <Link to="/">
-              <img src={logoImage} alt="ImpulsaTec" className="h-9 bg-white rounded-lg px-2 py-1" />
+            <Link to="/" className="flex items-center gap-3">
+              <img src={logoImage} alt="ImpulsaTec" className="h-9 bg-white rounded px-1.5 py-0.5 border hairline shrink-0" />
+              <div className="font-display text-[20px] leading-none text-[#0B0F1A] hidden sm:block">ImpulsaTec</div>
             </Link>
-            <div className="hidden md:flex items-center gap-5 text-sm">
+            <div className="hidden md:flex items-center gap-1">
               <button
                 onClick={() => setVistaActiva("buscar")}
-                className={`flex items-center gap-1.5 transition-colors ${vistaActiva === "buscar" ? "text-white font-semibold" : "text-white/70 hover:text-white"}`}
+                className={`flex items-center gap-1.5 px-3 h-8 rounded-md text-[13px] font-medium transition-colors ${vistaActiva === "buscar" ? "bg-[#0B0F1A] text-[#F6F3EC]" : "text-[#0B0F1A]/60 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]"}`}
               >
                 <Search className="w-4 h-4" />
                 <span>Buscar Talento</span>
               </button>
               <button
                 onClick={abrirVistaOfertas}
-                className={`flex items-center gap-1.5 transition-colors ${vistaActiva === "ofertas" ? "text-white font-semibold" : "text-white/70 hover:text-white"}`}
+                className={`relative flex items-center gap-1.5 px-3 h-8 rounded-md text-[13px] font-medium transition-colors ${vistaActiva === "ofertas" ? "bg-[#0B0F1A] text-[#F6F3EC]" : "text-[#0B0F1A]/60 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]"}`}
               >
                 <FileText className="w-4 h-4" />
                 <span>Mis Ofertas</span>
                 {perfil && perfil.ofertas.length > 0 && (
-                  <span className="bg-[#F97316] text-white text-xs px-1.5 py-0.5 rounded-full font-bold leading-none">
+                  <span className="ml-1 bg-[#C94A2A] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
                     {perfil.ofertas.length}
                   </span>
                 )}
               </button>
               <button
                 onClick={() => setVistaActiva("feed")}
-                className={`flex items-center gap-1.5 transition-colors ${vistaActiva === "feed" ? "text-white font-semibold" : "text-white/70 hover:text-white"}`}
+                className={`flex items-center gap-1.5 px-3 h-8 rounded-md text-[13px] font-medium transition-colors ${vistaActiva === "feed" ? "bg-[#0B0F1A] text-[#F6F3EC]" : "text-[#0B0F1A]/60 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]"}`}
               >
                 <Home className="w-4 h-4" />
-                <span className="text-sm">Feed</span>
-              </button>
-              <button className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors">
-                <Bookmark className="w-4 h-4" />
-                <span>Guardados</span>
+                <span>Feed</span>
               </button>
               <button
                 onClick={() => { setPanelDMsAbierto(true); setDmHiloInicial(null) }}
-                className="relative flex items-center gap-1.5 text-white/70 hover:text-white transition-colors"
+                className="relative flex items-center gap-1.5 px-3 h-8 rounded-md text-[13px] font-medium text-[#0B0F1A]/60 hover:text-[#0B0F1A] hover:bg-[#EDE7D8] transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Mensajes</span>
                 {dmsBadge > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-[#F97316] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-[#C94A2A] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-0.5">
                     {dmsBadge}
                   </span>
                 )}
               </button>
             </div>
           </div>
+          {/* Menú hamburguesa — solo en móvil */}
+          <Sheet open={menuMovilAbierto} onOpenChange={setMenuMovilAbierto}>
+            <SheetTrigger asChild>
+              <button className="flex md:hidden p-2 hover:bg-[#EDE7D8] rounded-md transition-colors">
+                <Menu className="w-5 h-5 text-[#0B0F1A]" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[260px] p-0 bg-[#0B0F1A]">
+              <div className="flex flex-col h-full pt-6 pb-8">
+                <div className="px-5 mb-6">
+                  <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Navegación</p>
+                </div>
+                <nav className="flex flex-col gap-1 px-3">
+                  {[
+                    { label: 'Buscar Talento', vista: 'buscar' as const, Icon: Search },
+                    { label: 'Mis Ofertas', vista: 'ofertas' as const, Icon: FileText },
+                    { label: 'Feed', vista: 'feed' as const, Icon: Home },
+                  ].map(({ label, vista, Icon }) => (
+                    <button
+                      key={vista}
+                      onClick={() => {
+                        if (vista === 'ofertas') abrirVistaOfertas()
+                        else setVistaActiva(vista)
+                        setMenuMovilAbierto(false)
+                      }}
+                      className={`flex items-center gap-3 px-4 h-11 rounded-xl text-[14px] font-medium transition-colors text-left ${
+                        vistaActiva === vista
+                          ? 'bg-white/15 text-white'
+                          : 'text-white/60 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setPanelDMsAbierto(true)
+                      setDmHiloInicial(null)
+                      setMenuMovilAbierto(false)
+                    }}
+                    className="relative flex items-center gap-3 px-4 h-11 rounded-xl text-[14px] font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors text-left"
+                  >
+                    <MessageSquare className="w-4 h-4 shrink-0" />
+                    Mensajes
+                    {dmsBadge > 0 && (
+                      <span className="ml-auto min-w-[20px] h-5 bg-[#C94A2A] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1">
+                        {dmsBadge}
+                      </span>
+                    )}
+                  </button>
+                </nav>
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <div className="flex items-center gap-3">
-            <button className="relative p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-              <Bell className="w-5 h-5" />
+            <button className="relative p-1.5 hover:bg-[#EDE7D8] rounded-md transition-colors">
+              <Bell className="w-5 h-5 text-[#0B0F1A]" />
             </button>
 
             {/* Avatar con menú */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Avatar className="w-8 h-8 border-2 border-white/30 cursor-pointer">
+                <Avatar className="w-8 h-8 cursor-pointer border hairline-strong">
                   {perfil?.logoUrl && <AvatarImage src={perfil.logoUrl} />}
-                  <AvatarFallback className="bg-white/20 text-white text-xs font-bold">
+                  <AvatarFallback className="bg-[#0B0F1A] text-[#F6F3EC] text-xs font-display">
                     {perfil?.nombre[0] ?? "E"}
                   </AvatarFallback>
                 </Avatar>
@@ -571,8 +631,8 @@ export function CompanyDashboard() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-12 gap-5">
+      <div className="max-w-[1240px] mx-auto px-6 py-8">
+        <div className="grid grid-cols-12 gap-6">
 
           {/* ── SIDEBAR IZQUIERDO ───────────────────────────── */}
           <aside className="col-span-12 lg:col-span-3 space-y-4">
@@ -581,53 +641,45 @@ export function CompanyDashboard() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3 mb-5">
-                    <Avatar className="w-14 h-14 rounded-xl">
-                      {perfil?.logoUrl && <AvatarImage src={perfil.logoUrl} />}
-                      <AvatarFallback className="rounded-xl bg-[#DBEAFE] text-[#0F172A] font-bold">
-                        {perfil?.nombre[0] ?? "E"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-bold text-sm text-gray-900">{perfil?.nombre ?? "—"}</h3>
-                      <p className="text-xs text-gray-400">{perfil?.rubro ?? "—"}</p>
+              <div className="border hairline rounded-lg bg-[#FBFAF6] overflow-hidden">
+                <div className="h-14 bg-[#0B0F1A] relative">
+                  <div className="absolute inset-0 placeholder-stripe-dark opacity-50" />
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center gap-3 mb-5 -mt-8">
+                    <div className="w-14 h-14 rounded-lg border-2 border-[#FBFAF6] bg-[#C94A2A] flex items-center justify-center font-display text-[#F6F3EC] text-xl shrink-0 overflow-hidden">
+                      {perfil?.logoUrl
+                        ? <img src={perfil.logoUrl} className="w-full h-full object-cover" alt="" />
+                        : perfil?.nombre[0] ?? "E"}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-display text-[18px] leading-tight text-[#0B0F1A] truncate">{perfil?.nombre ?? "—"}</h3>
+                      <div className="smallcaps text-[10px] text-[#0B0F1A]/50">{perfil?.rubro ?? "—"}</div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 border-t hairline pt-4">
                     {[
-                      { label: "Encontrados", valor: cargando ? "..." : `${estudiantesFiltrados.length}`, icon: Search, color: "bg-blue-50 text-blue-700" },
-                      { label: "Guardados", valor: "—", icon: Bookmark, color: "bg-purple-50 text-purple-700" },
-                      { label: "Ofertas activas", valor: perfil ? `${perfil.ofertas.length}` : "—", icon: TrendingUp, color: "bg-[#DBEAFE] text-[#0F172A]" },
+                      { label: "Estudiantes encontrados", valor: cargando ? "..." : `${estudiantesFiltrados.length}` },
+                      { label: "Ofertas activas", valor: perfil ? `${perfil.ofertas.length}` : "—" },
                     ].map(stat => (
-                      <div key={stat.label} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <div>
-                          <p className="text-xs text-gray-500">{stat.label}</p>
-                          <p className="text-lg font-bold text-gray-900">{stat.valor}</p>
-                        </div>
-                        <div className={`p-2 rounded-lg ${stat.color}`}>
-                          <stat.icon className="w-4 h-4" />
-                        </div>
+                      <div key={stat.label} className="flex items-center justify-between">
+                        <div className="smallcaps text-[10px] text-[#0B0F1A]/55">{stat.label}</div>
+                        <div className="font-display text-[22px] leading-none text-[#0B0F1A]">{stat.valor}</div>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
 
-              {/* Chat con el colegio */}
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-4">
+                  {/* Chat con el colegio */}
                   <button
-                    className="w-full flex items-center gap-2.5 justify-center text-[#0F172A] hover:text-[#2563EB] py-1 transition-colors"
+                    className="w-full mt-4 flex items-center gap-2.5 justify-center h-9 rounded-full border hairline text-[13px] font-medium text-[#0B0F1A]/70 hover:bg-[#EDE7D8] transition-colors"
                     onClick={() => { setPanelChatAbierto(true); setMensajesNoLeidos(0) }}
                   >
                     <MessageSquare className="w-4 h-4" />
-                    <span className="text-sm font-medium">Chat con el colegio</span>
+                    <span>Chat con el colegio</span>
                   </button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           </aside>
 
@@ -637,22 +689,21 @@ export function CompanyDashboard() {
           {/* ── VISTA: FEED ────────────────────────────────────────── */}
           {vistaActiva === "feed" && (
             <div className="space-y-4">
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex gap-3 items-center">
-                    <Avatar className="w-10 h-10 shrink-0">
-                      {perfil?.logoUrl && <AvatarImage src={perfil.logoUrl} />}
-                      <AvatarFallback>{perfil?.nombre[0] ?? "?"}</AvatarFallback>
-                    </Avatar>
-                    <button
-                      onClick={() => setMostrarCrearPost(true)}
-                      className="flex-1 text-left px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm text-gray-400 transition-colors"
-                    >
-                      ¿Qué quieres compartir sobre tu empresa?
-                    </button>
+              <div className="border hairline rounded-lg bg-[#FBFAF6] p-4">
+                <div className="flex gap-3 items-center">
+                  <div className="w-10 h-10 rounded-md bg-[#C94A2A] flex items-center justify-center font-display text-[#F6F3EC] text-sm shrink-0 overflow-hidden">
+                    {perfil?.logoUrl
+                      ? <img src={perfil.logoUrl} className="w-full h-full object-cover" alt="" />
+                      : perfil?.nombre[0] ?? "E"}
                   </div>
-                </CardContent>
-              </Card>
+                  <button
+                    onClick={() => setMostrarCrearPost(true)}
+                    className="flex-1 text-left px-4 py-2.5 bg-[#EDE7D8]/60 hover:bg-[#EDE7D8] rounded-full text-[13px] text-[#0B0F1A]/50 transition-colors border hairline"
+                  >
+                    ¿Qué quieres compartir sobre tu empresa?
+                  </button>
+                </div>
+              </div>
 
               {cargandoPosts && (
                 <div className="flex items-center justify-center py-12 text-gray-400 gap-2">
@@ -706,7 +757,7 @@ export function CompanyDashboard() {
                         ) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                              <button className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-[#EDE7D8] transition-colors">
                                 <MoreVertical className="w-4 h-4" />
                               </button>
                             </DropdownMenuTrigger>
@@ -737,7 +788,7 @@ export function CompanyDashboard() {
                       )}
 
                       <div className="flex items-center gap-1 pt-3 mt-3 border-t border-gray-50">
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center">
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]/50 transition-all text-xs font-medium flex-1 justify-center">
                           <ThumbsUp className="w-3.5 h-3.5" />
                           <span>Me gusta</span>
                         </button>
@@ -745,14 +796,14 @@ export function CompanyDashboard() {
                           onClick={() => toggleComentarios(post.id)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex-1 justify-center ${
                             comentariosAbiertos.has(post.id)
-                              ? "text-[#2563EB] bg-[#DBEAFE]/50"
-                              : "text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50"
+                              ? "text-[#0B0F1A] bg-[#EDE7D8]/50"
+                              : "text-gray-500 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]/50"
                           }`}
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
                           <span>{post._count?.comentarios ?? 0}</span>
                         </button>
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0F172A] hover:bg-[#DBEAFE]/50 transition-all text-xs font-medium flex-1 justify-center">
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#0B0F1A] hover:bg-[#EDE7D8]/50 transition-all text-xs font-medium flex-1 justify-center">
                           <Share2 className="w-3.5 h-3.5" />
                           <span>Compartir</span>
                         </button>
@@ -786,7 +837,7 @@ export function CompanyDashboard() {
                                   {fotoC && <AvatarImage src={fotoC} />}
                                   <AvatarFallback className="text-xs">{nombreC[0]}</AvatarFallback>
                                 </Avatar>
-                                <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
+                                <div className="flex-1 bg-[#F6F3EC] rounded-xl px-3 py-2">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-semibold text-gray-800">{nombreC}</span>
                                     <div className="flex items-center gap-1">
@@ -818,12 +869,12 @@ export function CompanyDashboard() {
                                 onChange={e => setTextosComentario(prev => ({ ...prev, [post.id]: e.target.value }))}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComentario(post.id) } }}
                                 placeholder="Escribe un comentario..."
-                                className="flex-1 text-xs px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20"
+                                className="flex-1 text-xs px-3 py-1.5 bg-[#F6F3EC] rounded-xl border border-gray-200 focus:outline-none focus:border-[#0B0F1A] focus:ring-1 focus:ring-[#0B0F1A]/20"
                               />
                               <button
                                 onClick={() => enviarComentario(post.id)}
                                 disabled={!textosComentario[post.id]?.trim() || enviandoComentario.has(post.id)}
-                                className="p-1.5 rounded-xl bg-[#0F172A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2563EB] transition-colors"
+                                className="p-1.5 rounded-xl bg-[#0B0F1A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#0B0F1A] transition-colors"
                               >
                                 {enviandoComentario.has(post.id)
                                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -855,7 +906,7 @@ export function CompanyDashboard() {
                   <p className="text-sm text-gray-500">Gestiona tus pasantías publicadas</p>
                 </div>
                 <Button
-                  className="bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl gap-2"
+                  className="bg-[#C94A2A] hover:bg-[#B33E22] text-white rounded-xl gap-2"
                   onClick={() => setMostrarCrearOferta(true)}
                 >
                   <Plus className="w-4 h-4" />
@@ -895,18 +946,18 @@ export function CompanyDashboard() {
                         transition={{ duration: 0.3, delay: i * 0.04 }}
                       >
                         <Card className={`border shadow-sm hover:shadow-md transition-all h-full ${oferta.activa ? "border-gray-100" : "border-gray-200 opacity-60"}`}>
-                          <div className={`h-1 w-full rounded-t-xl ${oferta.activa ? "bg-[#F97316]" : "bg-gray-300"}`} />
+                          <div className={`h-1 w-full rounded-t-xl ${oferta.activa ? "bg-[#C94A2A]" : "bg-gray-300"}`} />
                           <CardContent className="p-5 flex flex-col gap-3 h-full">
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="font-bold text-sm text-gray-900 line-clamp-2 flex-1">{oferta.titulo}</h3>
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                                oferta.activa ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-gray-100 text-gray-500"
+                                oferta.activa ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-[#EDE7D8] text-gray-500"
                               }`}>
                                 {oferta.activa ? "Activa" : "Cerrada"}
                               </span>
                             </div>
 
-                            <span className="text-xs bg-[#DBEAFE] text-[#0F172A] px-2.5 py-1 rounded-full font-medium w-fit">
+                            <span className="text-xs bg-[#EDE7D8] text-[#0B0F1A] px-2.5 py-1 rounded-full font-medium w-fit">
                               {oferta.especialidad}
                             </span>
 
@@ -921,7 +972,7 @@ export function CompanyDashboard() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="w-full h-8 text-xs rounded-lg gap-1.5 border-[#DBEAFE] text-[#2563EB] hover:bg-[#DBEAFE]"
+                                className="w-full h-8 text-xs rounded-lg gap-1.5 border-[#DBEAFE] text-[#0B0F1A] hover:bg-[#EDE7D8]"
                                 onClick={() => verPostulantes(oferta.id)}
                               >
                                 <Users className="w-3.5 h-3.5" /> Ver postulantes
@@ -973,20 +1024,20 @@ export function CompanyDashboard() {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         placeholder="Buscar por nombre o habilidad..."
-                        className="pl-9 bg-gray-50 border-gray-200 rounded-xl h-10 text-sm"
+                        className="pl-9 bg-[#F6F3EC] border-gray-200 rounded-xl h-10 text-sm"
                         value={busqueda}
                         onChange={e => setBusqueda(e.target.value)}
                       />
                     </div>
                     <Button
                       variant="outline"
-                      className={`h-10 px-4 rounded-xl border-gray-200 text-sm gap-2 ${mostrarFiltros ? "bg-[#0F172A] text-white border-[#0F172A]" : ""}`}
+                      className={`h-10 px-4 rounded-xl border-gray-200 text-sm gap-2 ${mostrarFiltros ? "bg-[#0B0F1A] text-white border-[#0B0F1A]" : ""}`}
                       onClick={() => setMostrarFiltros(!mostrarFiltros)}
                     >
                       <SlidersHorizontal className="w-4 h-4" />
                       Filtros
                       {hayFiltrosActivos && (
-                        <span className="w-2 h-2 bg-[#F97316] rounded-full" />
+                        <span className="w-2 h-2 bg-[#C94A2A] rounded-full" />
                       )}
                     </Button>
                     {hayFiltrosActivos && (
@@ -1020,8 +1071,8 @@ export function CompanyDashboard() {
                                   onClick={() => setEspecialidadFiltro(prev => prev === esp ? "" : esp)}
                                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer ${
                                     especialidadFiltro === esp
-                                      ? "bg-[#0F172A] text-white shadow-sm scale-105"
-                                      : "bg-gray-100 text-gray-600 hover:bg-[#DBEAFE] hover:text-[#0F172A]"
+                                      ? "bg-[#0B0F1A] text-white shadow-sm scale-105"
+                                      : "bg-[#EDE7D8] text-gray-600 hover:bg-[#EDE7D8] hover:text-[#0B0F1A]"
                                   }`}
                                 >
                                   {esp}
@@ -1036,7 +1087,7 @@ export function CompanyDashboard() {
                                 <button
                                   key={hab}
                                   onClick={() => setBusqueda(hab)}
-                                  className="px-3 py-1.5 bg-gray-100 hover:bg-[#DBEAFE] hover:text-[#0F172A] text-gray-600 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
+                                  className="px-3 py-1.5 bg-[#EDE7D8] hover:bg-[#EDE7D8] hover:text-[#0B0F1A] text-gray-600 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer"
                                 >
                                   {hab}
                                 </button>
@@ -1058,7 +1109,7 @@ export function CompanyDashboard() {
                   <>
                     <span className="font-semibold text-gray-900">{estudiantesFiltrados.length}</span>
                     {" "}estudiante{estudiantesFiltrados.length !== 1 ? "s" : ""} encontrado{estudiantesFiltrados.length !== 1 ? "s" : ""}
-                    {especialidadFiltro && <span className="text-[#0F172A]"> en {especialidadFiltro}</span>}
+                    {especialidadFiltro && <span className="text-[#0B0F1A]"> en {especialidadFiltro}</span>}
                   </>
                 )}
               </p>
@@ -1072,7 +1123,7 @@ export function CompanyDashboard() {
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-16 h-16 bg-gray-200 rounded-full" />
                       <div className="h-4 bg-gray-200 rounded w-28" />
-                      <div className="h-3 bg-gray-100 rounded w-20" />
+                      <div className="h-3 bg-[#EDE7D8] rounded w-20" />
                     </div>
                   </div>
                 ))}
@@ -1117,12 +1168,12 @@ export function CompanyDashboard() {
                           </div>
 
                           <h3 className="font-bold text-sm text-gray-900 mb-0.5">{est.nombre} {est.apellido}</h3>
-                          <p className="text-xs text-[#0F172A] font-medium uppercase tracking-wide mb-3">{est.especialidad}</p>
+                          <p className="text-xs text-[#0B0F1A] font-medium uppercase tracking-wide mb-3">{est.especialidad}</p>
 
                           {est.habilidades.length > 0 && (
                             <div className="flex flex-wrap gap-1 justify-center mb-3">
                               {est.habilidades.slice(0, 3).map(h => (
-                                <span key={h.id} className="text-xs bg-[#DBEAFE] text-[#0F172A] px-2 py-0.5 rounded-full font-medium">
+                                <span key={h.id} className="text-xs bg-[#EDE7D8] text-[#0B0F1A] px-2 py-0.5 rounded-full font-medium">
                                   {h.nombre}
                                 </span>
                               ))}
@@ -1137,14 +1188,14 @@ export function CompanyDashboard() {
                           <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium mb-4 ${
                             est.disponible
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-gray-100 text-gray-500 border border-gray-200"
+                              : "bg-[#EDE7D8] text-gray-500 border border-gray-200"
                           }`}>
                             {est.disponible ? "● Disponible" : "En pasantía"}
                           </span>
 
                           {/* Ver perfil completo → abre dialog */}
                           <Button
-                            className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white text-xs rounded-lg h-8 font-semibold"
+                            className="w-full bg-[#C94A2A] hover:bg-[#B33E22] text-white text-xs rounded-lg h-8 font-semibold"
                             onClick={() => setEstudianteSel(est)}
                           >
                             Ver perfil completo
@@ -1210,7 +1261,7 @@ export function CompanyDashboard() {
                 Cancelar
               </Button>
               <Button
-                className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                className="bg-[#0B0F1A] hover:bg-[#0B0F1A] text-white"
                 onClick={crearOferta}
                 disabled={!nuevaTitulo.trim() || !nuevaDescripcion.trim() || !nuevaEspecialidad || guardandoOferta}
               >
@@ -1292,8 +1343,8 @@ export function CompanyDashboard() {
                       <p className="text-xs text-gray-500">Certificaciones</p>
                       <p className="text-xs text-emerald-600 font-medium">{estudianteSel.certificaciones.filter(c => c.validada).length} validadas</p>
                     </div>
-                    <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
-                      <Briefcase className="w-4 h-4 mx-auto mb-1 text-[#0F172A]" />
+                    <div className="bg-[#F6F3EC] rounded-xl p-3 text-center border border-gray-100">
+                      <Briefcase className="w-4 h-4 mx-auto mb-1 text-[#0B0F1A]" />
                       <p className="text-sm font-bold text-gray-900 leading-tight">{estudianteSel.especialidad}</p>
                       <p className="text-xs text-gray-500 mt-0.5">Especialidad</p>
                     </div>
@@ -1313,7 +1364,7 @@ export function CompanyDashboard() {
                           <div
                             key={h.id}
                             className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
-                              h.validada ? "bg-blue-50 border-blue-100" : "bg-gray-50 border-gray-100"
+                              h.validada ? "bg-blue-50 border-blue-100" : "bg-[#F6F3EC] border-gray-100"
                             }`}
                           >
                             <div className="flex items-center gap-2.5">
@@ -1347,7 +1398,7 @@ export function CompanyDashboard() {
                           <div
                             key={cert.id}
                             className={`flex items-center gap-3 p-3 rounded-xl border ${
-                              cert.validada ? "bg-emerald-50 border-emerald-100" : "bg-gray-50 border-gray-100"
+                              cert.validada ? "bg-emerald-50 border-emerald-100" : "bg-[#F6F3EC] border-gray-100"
                             }`}
                           >
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
@@ -1375,7 +1426,7 @@ export function CompanyDashboard() {
                   {/* Botón contactar */}
                   <div className="pt-1 border-t border-gray-100">
                     <Button
-                      className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl h-11 text-sm font-semibold"
+                      className="w-full bg-[#C94A2A] hover:bg-[#B33E22] text-white rounded-xl h-11 text-sm font-semibold"
                       onClick={async () => {
                         if (!sesion || !estudianteSel) return
                         try {
@@ -1448,7 +1499,7 @@ export function CompanyDashboard() {
                 Cancelar
               </Button>
               <Button
-                className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                className="bg-[#0B0F1A] hover:bg-[#0B0F1A] text-white"
                 onClick={guardarPerfil}
                 disabled={guardandoPerfil}
               >
@@ -1478,7 +1529,7 @@ export function CompanyDashboard() {
           ) : (
             <div className="space-y-3 pt-2">
               {postulantes.map(p => (
-                <div key={p.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                <div key={p.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-[#F6F3EC] transition-colors">
                   <Avatar className="w-10 h-10 shrink-0">
                     {p.estudiante.fotoUrl && <AvatarImage src={p.estudiante.fotoUrl} />}
                     <AvatarFallback className={`bg-gradient-to-br ${gradienteAvatar(p.estudiante.nombre)} text-white font-bold text-sm`}>
@@ -1491,7 +1542,7 @@ export function CompanyDashboard() {
                     {p.estudiante.habilidades.filter(h => h.validada).length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {p.estudiante.habilidades.filter(h => h.validada).slice(0, 3).map(h => (
-                          <span key={h.id} className="text-xs bg-[#DBEAFE] text-[#0F172A] px-2 py-0.5 rounded-full">{h.nombre}</span>
+                          <span key={h.id} className="text-xs bg-[#EDE7D8] text-[#0B0F1A] px-2 py-0.5 rounded-full">{h.nombre}</span>
                         ))}
                       </div>
                     )}
@@ -1560,7 +1611,7 @@ export function CompanyDashboard() {
             )}
 
             {archivoMedia && !previewUrl && (
-              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-700">
+              <div className="flex items-center gap-2 bg-[#F6F3EC] rounded-xl px-3 py-2 text-sm text-gray-700">
                 <ImageIcon className="w-4 h-4 text-gray-400 shrink-0" />
                 <span className="truncate flex-1">{archivoMedia.name}</span>
                 <button onClick={quitarMedia} className="text-gray-400 hover:text-gray-600">
@@ -1590,7 +1641,7 @@ export function CompanyDashboard() {
                 size="sm"
                 type="button"
                 onClick={() => refInputArchivo.current?.click()}
-                className="text-gray-500 hover:text-[#0F172A] gap-1.5"
+                className="text-gray-500 hover:text-[#0B0F1A] gap-1.5"
                 disabled={subiendoMedia || enviandoPost}
               >
                 <Paperclip className="w-4 h-4" />
@@ -1601,7 +1652,7 @@ export function CompanyDashboard() {
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-[#0F172A] hover:bg-[#2563EB] text-white"
+                  className="bg-[#0B0F1A] hover:bg-[#0B0F1A] text-white"
                   onClick={publicarEnFeed}
                   disabled={!textoPost.trim() || enviandoPost || subiendoMedia}
                 >

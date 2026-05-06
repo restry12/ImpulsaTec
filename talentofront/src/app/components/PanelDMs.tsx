@@ -235,7 +235,7 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
             className="fixed right-0 top-0 h-full w-[380px] max-w-full bg-white z-50 flex flex-col shadow-2xl"
           >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3.5 bg-[#0F172A] text-white shrink-0">
+            <div className="flex items-center gap-3 px-4 py-3.5 bg-[#0B0F1A] text-white shrink-0">
               {hiloActivo ? (
                 <>
                   <button
@@ -276,17 +276,17 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
                     key={tab}
                     onClick={() => setTabActiva(tab)}
                     className={`flex-1 py-2.5 text-xs font-semibold transition-colors relative ${
-                      tabActiva === tab ? 'text-[#0F172A]' : 'text-gray-400 hover:text-gray-600'
+                      tabActiva === tab ? 'text-[#0B0F1A]' : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
                     {tab === 'EMPRESA_ESTUDIANTE' ? 'Empresas' : 'Estudiantes'}
                     {tabActiva === tab && (
-                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#F97316]" />
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#C94A2A]" />
                     )}
                     {(() => {
                       const noLeidos = hilos.filter(h => h.tipo === tab && h.noLeidos > 0).length
                       return noLeidos > 0 ? (
-                        <span className="ml-1 bg-[#F97316] text-white text-[10px] px-1 rounded-full">{noLeidos}</span>
+                        <span className="ml-1 bg-[#C94A2A] text-white text-[10px] px-1 rounded-full">{noLeidos}</span>
                       ) : null
                     })()}
                   </button>
@@ -325,13 +325,13 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
                     >
                       <Avatar className="w-10 h-10 shrink-0">
                         {hilo.contraparte.logoUrl && <AvatarImage src={hilo.contraparte.logoUrl} />}
-                        <AvatarFallback className="bg-[#DBEAFE] text-[#2563EB] text-xs font-bold">
+                        <AvatarFallback className="bg-[#DBEAFE] text-[#0B0F1A] text-xs font-bold">
                           {iniciales(hilo.contraparte.nombre)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className={`text-sm truncate ${hilo.noLeidos > 0 ? 'font-semibold text-[#0F172A]' : 'font-medium text-gray-700'}`}>
+                          <p className={`text-sm truncate ${hilo.noLeidos > 0 ? 'font-semibold text-[#0B0F1A]' : 'font-medium text-gray-700'}`}>
                             {hilo.contraparte.nombre}
                           </p>
                           {hilo.ultimoMensaje && (
@@ -341,11 +341,11 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
                           )}
                         </div>
                         <div className="flex items-center justify-between gap-2 mt-0.5">
-                          <p className={`text-xs truncate ${hilo.noLeidos > 0 ? 'text-[#0F172A]' : 'text-gray-400'}`}>
+                          <p className={`text-xs truncate ${hilo.noLeidos > 0 ? 'text-[#0B0F1A]' : 'text-gray-400'}`}>
                             {hilo.ultimoMensaje?.contenido ?? 'Sin mensajes aún'}
                           </p>
                           {hilo.noLeidos > 0 && (
-                            <Badge className="bg-[#F97316] text-white text-[10px] h-4 min-w-4 px-1 shrink-0">
+                            <Badge className="bg-[#C94A2A] text-white text-[10px] h-4 min-w-4 px-1 shrink-0">
                               {hilo.noLeidos}
                             </Badge>
                           )}
@@ -378,8 +378,8 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
                         <div key={m.id} className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
                             esMio
-                              ? 'bg-[#F97316] text-white rounded-br-sm'
-                              : 'bg-[#0F172A] text-white rounded-bl-sm'
+                              ? 'bg-[#C94A2A] text-white rounded-br-sm'
+                              : 'bg-[#0B0F1A] text-white rounded-bl-sm'
                           }`}>
                             <p>{m.contenido}</p>
                             <p className="text-xs mt-1 text-white/60 text-right">
@@ -401,7 +401,7 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
                       onKeyDown={alPresionarTecla}
                       placeholder="Escribe un mensaje... (Enter para enviar)"
                       rows={1}
-                      className="flex-1 resize-none rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]/40 focus:border-[#F97316] min-h-[40px] max-h-[120px] overflow-y-auto"
+                      className="flex-1 resize-none rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C94A2A]/40 focus:border-[#C94A2A] min-h-[40px] max-h-[120px] overflow-y-auto"
                       style={{ height: 'auto' }}
                       onInput={e => {
                         const el = e.currentTarget
@@ -412,7 +412,7 @@ export function PanelDMs({ abierto, onCerrar, rolActual, token, hiloInicialId, o
                     <Button
                       onClick={enviar}
                       disabled={!texto.trim() || enviando}
-                      className="bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl h-10 w-10 p-0 shrink-0"
+                      className="bg-[#C94A2A] hover:bg-[#B33E22] text-white rounded-xl h-10 w-10 p-0 shrink-0"
                     >
                       {enviando
                         ? <Loader2 className="w-4 h-4 animate-spin" />

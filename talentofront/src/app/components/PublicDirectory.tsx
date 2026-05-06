@@ -1,15 +1,6 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Search, Mail, CheckCircle, Award, ArrowRight, Zap, GraduationCap, Briefcase, Star, ChevronLeft, Newspaper, Loader2 } from "lucide-react";
 import { Link } from "react-router";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Card, CardContent } from "./ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
-import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
 import logoImage from "../../assets/17a2f6b30bc584421f868b1534160753545e9968.png";
 
 type Habilidad = { id: number; nombre: string; validada: boolean }
@@ -51,24 +42,74 @@ const API_URL = import.meta.env.VITE_API_URL
 
 const especialidades = ["Electricidad", "Mecánica", "Electrónica", "Refrigeración", "Informática"]
 
-// Color de avatar según inicial del nombre
-const gradientesAvatar = [
-  "from-blue-500 to-blue-700",
-  "from-purple-500 to-purple-700",
-  "from-emerald-500 to-emerald-700",
-  "from-orange-500 to-orange-700",
-  "from-rose-500 to-rose-700",
-  "from-cyan-500 to-cyan-700",
-  "from-amber-500 to-amber-700",
-]
-const gradienteAvatar = (nombre: string) =>
-  gradientesAvatar[nombre.charCodeAt(0) % gradientesAvatar.length]
+/* Monograma editorial */
+const coloresMonograma = ['#C94A2A', '#3F6A3A', '#262C3D', '#8E3018', '#575A68', '#2E4E2B']
+const colorMonograma = (nombre: string) =>
+  coloresMonograma[nombre.charCodeAt(0) % coloresMonograma.length]
 
-// Estado del formulario de contacto para un estudiante específico
+const Monograma = ({ nombre, apellido, size = 48 }: { nombre: string; apellido: string; size?: number }) => {
+  const iniciales = `${nombre[0] ?? ''}${apellido[0] ?? ''}`.toUpperCase()
+  const c = colorMonograma(nombre)
+  return (
+    <div
+      className="shrink-0 flex items-center justify-center font-display text-bone"
+      style={{ width: size, height: size, background: c, borderRadius: size > 56 ? 8 : 6, fontSize: size * 0.42 }}
+    >
+      {iniciales}
+    </div>
+  )
+}
+
 interface FormContacto {
   nombreRemitente: string
   emailRemitente: string
   mensaje: string
+}
+
+/* Íconos SVG compactos */
+const IcoSearch = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+  </svg>
+)
+const IcoArrow = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14" /><path d="m13 5 7 7-7 7" />
+  </svg>
+)
+const IcoShield = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" /><path d="m9 12 2 2 4-4" />
+  </svg>
+)
+const IcoX = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 6l12 12" /><path d="M18 6 6 18" />
+  </svg>
+)
+const IcoClock = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+  </svg>
+)
+const IcoCheck = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" />
+  </svg>
+)
+const IcoSend = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7z" />
+  </svg>
+)
+
+function tiempoRelativo(fecha: string) {
+  const diff = Date.now() - new Date(fecha).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return "Ahora mismo"
+  if (min < 60) return `Hace ${min} min`
+  if (min < 1440) return `Hace ${Math.floor(min / 60)}h`
+  return `Hace ${Math.floor(min / 1440)} día${Math.floor(min / 1440) > 1 ? "s" : ""}`
 }
 
 export function PublicDirectory() {
@@ -77,52 +118,39 @@ export function PublicDirectory() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState("")
+  const [filtroEsp, setFiltroEsp] = useState("")
   const [filtroTipo, setFiltroTipo] = useState<"TODOS" | "PASANTIA" | "FREELANCE">("TODOS")
   const [empresas, setEmpresas] = useState<EmpresaDir[]>([])
   const [cargandoEmpresas, setCargandoEmpresas] = useState(false)
   const [empresasCargadas, setEmpresasCargadas] = useState(false)
-  // Diálogo de perfil: qué estudiante está seleccionado
   const [estudianteSel, setEstudianteSel] = useState<Estudiante | null>(null)
-  // Formulario de contacto
   const [formContacto, setFormContacto] = useState<FormContacto>({ nombreRemitente: "", emailRemitente: "", mensaje: "" })
   const [enviandoContacto, setEnviandoContacto] = useState(false)
   const [contactoEnviado, setContactoEnviado] = useState(false)
   const [vistaContacto, setVistaContacto] = useState(false)
   const [novedadesColegio, setNovedadesColegio] = useState<PostColegio[]>([])
-  const [cargandoNovedades, setCargandoNovedades] = useState(true)
 
   useEffect(() => {
     fetch(`${API_URL}/api/posts/colegio`)
       .then(res => res.json())
-      .then((datos: unknown) => {
-        setNovedadesColegio(Array.isArray(datos) ? datos : [])
-        setCargandoNovedades(false)
-      })
-      .catch(() => setCargandoNovedades(false))
+      .then((datos: unknown) => { setNovedadesColegio(Array.isArray(datos) ? datos : []) })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
-    fetch(`${API_URL}/api/estudiantes`)
-      .then(res => {
-        if (!res.ok) throw new Error("Error al cargar estudiantes")
-        return res.json()
+    // Carga estudiantes y empresas en paralelo para que el contador aparezca de inmediato
+    Promise.all([
+      fetch(`${API_URL}/api/estudiantes`).then(r => { if (!r.ok) throw new Error("Error al cargar estudiantes"); return r.json() }),
+      fetch(`${API_URL}/api/empresas`).then(r => r.json()),
+    ])
+      .then(([dataEstudiantes, dataEmpresas]: [Estudiante[], EmpresaDir[]]) => {
+        setEstudiantes(dataEstudiantes)
+        setEmpresas(dataEmpresas)
+        setEmpresasCargadas(true)
+        setCargando(false)
       })
-      .then(datos => { setEstudiantes(datos); setCargando(false) })
       .catch(err => { setError(err.message); setCargando(false) })
   }, [])
-
-  useEffect(() => {
-    if (tabActivo !== "empresas" || empresasCargadas) return
-    setCargandoEmpresas(true)
-    fetch(`${API_URL}/api/empresas`)
-      .then(res => res.json())
-      .then((datos: EmpresaDir[]) => {
-        setEmpresas(datos)
-        setEmpresasCargadas(true)
-        setCargandoEmpresas(false)
-      })
-      .catch(() => setCargandoEmpresas(false))
-  }, [tabActivo])
 
   const enviarContacto = async () => {
     if (!formContacto.nombreRemitente || !formContacto.emailRemitente || !formContacto.mensaje) return
@@ -139,11 +167,8 @@ export function PublicDirectory() {
           mensaje: formContacto.mensaje,
         }),
       })
-      if (res.ok) {
-        setContactoEnviado(true)
-      }
+      if (res.ok) setContactoEnviado(true)
     } catch {
-      // Error de red silencioso — igual marcamos como enviado para UX optimista
       setContactoEnviado(true)
     } finally {
       setEnviandoContacto(false)
@@ -159,776 +184,721 @@ export function PublicDirectory() {
 
   const estudiantesFiltrados = estudiantes.filter(est => {
     const texto = busqueda.toLowerCase()
-    const coincideTexto = (
+    const coincideTexto = !texto || (
       est.nombre.toLowerCase().includes(texto) ||
       est.apellido.toLowerCase().includes(texto) ||
       est.especialidad.toLowerCase().includes(texto) ||
       est.habilidades.some(h => h.nombre.toLowerCase().includes(texto))
     )
-    const coincideTipo = (
-      filtroTipo === "TODOS" ||
-      est.tipoDisponibilidad === filtroTipo ||
-      est.tipoDisponibilidad === "AMBOS"
-    )
-    return coincideTexto && coincideTipo
+    const coincideEsp = !filtroEsp || est.especialidad === filtroEsp
+    const coincideTipo = filtroTipo === "TODOS" || est.tipoDisponibilidad === filtroTipo || est.tipoDisponibilidad === "AMBOS"
+    return coincideTexto && coincideEsp && coincideTipo
   })
 
+  /* etiqueta de disponibilidad */
+  const labelDisp = (t: Estudiante["tipoDisponibilidad"]) =>
+    t === "PASANTIA" ? "Pasantía" : t === "FREELANCE" ? "Freelance" : "Ambos"
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F6F3EC', color: '#0B0F1A' }}>
 
-      {/* ── HERO ─────────────────────────────────────────────── */}
-      <section className="relative bg-[#0F172A] text-white overflow-hidden">
-        {/* Fondo decorativo */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#1E3A8A] to-[#172554]" />
-        <div className="animar-brillar absolute -top-24 -left-24 w-96 h-96 bg-[#F97316]/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="animar-brillar absolute -bottom-16 -right-16 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" style={{ animationDelay: "2s" }} />
-        <div className="animar-flotar absolute top-16 right-24 w-16 h-16 bg-white/10 rounded-2xl rotate-12 pointer-events-none hidden lg:block" />
-        <div className="animar-flotar2 absolute bottom-24 left-16 w-10 h-10 bg-[#F97316]/30 rounded-xl -rotate-6 pointer-events-none hidden lg:block" />
-
-        {/* Enlace al panel admin */}
-        <div className="relative z-10 max-w-7xl mx-auto px-6 pt-5 flex justify-end">
-          <Link to="/colegio">
-            <Button variant="outline" size="sm" className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm">
-              Panel Admin
-            </Button>
-          </Link>
+      {/* ── ANUNCIO ───────────────────────────────────────── */}
+      <div style={{ background: '#0B0F1A', color: '#EDE7D8' }} className="text-[12px]">
+        <div className="max-w-[1240px] mx-auto px-6 h-9 flex items-center gap-3 overflow-hidden">
+          <span className="smallcaps font-semibold" style={{ color: '#C94A2A' }}>Novedad</span>
+          <span className="opacity-80">Programa de Formación Dual 2026 — postulaciones abiertas.</span>
+          <span className="ml-auto hidden md:flex items-center gap-1 opacity-60">
+            <IcoClock /> Actualizado hoy
+          </span>
         </div>
+      </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 pb-20 pt-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-6 flex flex-col items-center"
-          >
-            <div className="relative mb-5">
-              <div className="absolute inset-0 bg-white/20 rounded-xl blur-xl" />
-              <img
-                src={logoImage}
-                alt="Centro Educacional Cardenal José María Caro"
-                className="relative h-20 bg-white rounded-xl px-4 py-2 shadow-xl"
-              />
+      {/* ── NAV PÚBLICO ───────────────────────────────────── */}
+      <header className="border-b hairline" style={{ background: '#F6F3EC' }}>
+        <div className="max-w-[1240px] mx-auto px-6 h-[72px] flex items-center">
+          <div className="flex items-center gap-3">
+            <img src={logoImage} alt="Cardenal Caro" className="h-11 bg-white rounded px-1.5 py-1 border hairline shrink-0" />
+            <div>
+              <div className="font-display text-[22px] leading-none" style={{ color: '#0B0F1A' }}>ImpulsaTec</div>
+              <div className="smallcaps text-[9px] mt-0.5" style={{ color: 'rgba(11,15,26,0.5)' }}>Centro Cardenal José María Caro</div>
             </div>
-            <motion.h1
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.15 }}
-              className="text-3xl md:text-5xl font-bold leading-tight mb-3 max-w-3xl"
-            >
-              Centro Educacional<br />
-              <span className="text-[#F97316]">Cardenal José María Caro</span>
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.25 }}
-              className="text-xl text-white/80 font-medium tracking-wide"
-            >
-              Talento Técnico que impulsa Chile
-            </motion.p>
-          </motion.div>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.35 }}
-            className="text-base text-white/70 mb-8 max-w-2xl mx-auto leading-relaxed"
-          >
-            Conectamos estudiantes técnicos con empresas que buscan talento real,
-            certificado y listo para aportar desde el primer día.
-          </motion.p>
-
-          {/* Buscador */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.45 }}
-            className="max-w-2xl mx-auto mb-6"
-          >
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 transition-colors group-focus-within:text-[#0F172A]" />
-              <Input
-                placeholder="Busca por especialidad, habilidad o nombre..."
-                className="pl-12 pr-32 py-6 text-base bg-white text-gray-900 shadow-xl border-0 rounded-xl focus-visible:ring-[#F97316]"
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-              />
-              <Button className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg px-5">
-                Buscar
-              </Button>
-            </div>
-          </motion.div>
-
-          {/* Chips de especialidad */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.55 }}
-            className="flex flex-wrap gap-2 justify-center"
-          >
-            {especialidades.map(esp => (
-              <button
-                key={esp}
-                onClick={() => setBusqueda(busqueda === esp ? "" : esp)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer border ${
-                  busqueda === esp
-                    ? "bg-[#F97316] border-[#F97316] text-white shadow-md scale-105"
-                    : "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                }`}
-              >
-                {esp}
+          </div>
+          <nav className="ml-12 hidden md:flex items-center gap-8 text-[13px]" style={{ color: 'rgba(11,15,26,0.7)' }}>
+            <a className="hover:text-ink cursor-pointer">Estudiantes</a>
+            <a className="hover:text-ink cursor-pointer">Empresas</a>
+            <a className="hover:text-ink cursor-pointer">Colegio</a>
+            <a className="hover:text-ink cursor-pointer">Novedades</a>
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            <Link to="/login">
+              <button className="hover-lift inline-flex items-center justify-center gap-1.5 rounded-full font-medium h-10 px-4 text-[13px] bg-transparent border hairline" style={{ color: '#0B0F1A' }}>
+                Iniciar sesión
               </button>
-            ))}
-          </motion.div>
-
-          {/* Toggle Pasantía / Freelance */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.65 }}
-            className="flex gap-2 justify-center mt-3"
-          >
-            {(["TODOS", "PASANTIA", "FREELANCE"] as const).map(tipo => (
-              <button
-                key={tipo}
-                onClick={() => setFiltroTipo(tipo)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer border ${
-                  filtroTipo === tipo
-                    ? "bg-white border-white text-[#0F172A] shadow-md scale-105"
-                    : "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                }`}
-              >
-                {tipo === "TODOS" ? "Todos" : tipo === "PASANTIA" ? "Pasantía" : "Freelance"}
+            </Link>
+            <Link to="/registro">
+              <button className="hover-lift inline-flex items-center justify-center gap-1.5 rounded-full font-medium h-10 px-4 text-[13px]" style={{ background: '#0B0F1A', color: '#F6F3EC' }}>
+                Crear cuenta <IcoArrow />
               </button>
-            ))}
-          </motion.div>
+            </Link>
+          </div>
         </div>
-      </section>
+      </header>
 
-      {/* ── STATS ────────────────────────────────────────────── */}
-      <section className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 py-10">
-          <div className="grid grid-cols-3 gap-6 text-center">
-            {[
-              { valor: cargando ? "..." : `${estudiantes.length}`, label: "Estudiantes técnicos", color: "text-[#0F172A]" },
-              { valor: cargando ? "..." : `${estudiantes.filter(e => e.disponible).length}`, label: "Disponibles ahora", color: "text-emerald-600" },
-              { valor: "—", label: "Empresas conectadas", color: "text-[#F97316]" },
-            ].map((stat, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.1 * i }}
+      {/* ── HERO ─────────────────────────────────────────── */}
+      <section className="bone-grain">
+        <div className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid grid-cols-12 gap-10">
+          <div className="col-span-12 lg:col-span-8">
+            <div className="flex items-center gap-2 mb-7">
+              <div className="w-6 h-px" style={{ background: 'rgba(11,15,26,0.4)' }} />
+              <span className="smallcaps text-[11px] font-semibold" style={{ color: 'rgba(11,15,26,0.6)' }}>Edición 2026 · N°04</span>
+            </div>
+            <h1 className="font-display leading-[0.92] tracking-tight -mt-2" style={{ fontSize: 'clamp(56px, 9vw, 120px)', color: '#0B0F1A' }}>
+              Talento técnico
+              <br />
+              <span className="italic">que construye</span>
+              <br />
+              Chile.
+            </h1>
+            <p className="mt-8 max-w-[560px] text-[17px] leading-[1.55]" style={{ color: 'rgba(11,15,26,0.7)' }}>
+              El directorio oficial del Centro Educacional Cardenal José María Caro. Estudiantes certificados en electricidad, mecánica, electrónica, refrigeración e informática — listos para pasantías y contrataciones.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-3">
+              <button
+                className="hover-lift inline-flex items-center gap-2 rounded-full font-medium h-12 px-6 text-[14px]"
+                style={{ background: '#C94A2A', color: '#F6F3EC' }}
+                onClick={() => document.getElementById('directorio')?.scrollIntoView({ behavior: 'smooth' })}
               >
-                <p className={`text-4xl font-bold ${stat.color} mb-1`}>{stat.valor}</p>
-                <p className="text-sm text-gray-500">{stat.label}</p>
-              </motion.div>
-            ))}
+                Explorar talento <IcoArrow />
+              </button>
+              <Link to="/login">
+                <button className="hover-lift inline-flex items-center gap-2 rounded-full font-medium h-12 px-6 text-[14px] border" style={{ borderColor: '#0B0F1A', color: '#0B0F1A', background: 'transparent' }}>
+                  Soy empresa — publicar oferta
+                </button>
+              </Link>
+            </div>
+
+            {/* Stats inline */}
+            <div className="mt-14 grid grid-cols-3 max-w-[600px] gap-0 border-t hairline">
+              {[
+                { n: cargando ? '···' : String(estudiantes.length).padStart(3, '0'), l: 'Estudiantes activos' },
+                { n: cargando ? '··' : String(estudiantes.filter(e => e.disponible).length).padStart(2, '0'), l: 'Disponibles ahora' },
+                { n: empresasCargadas ? String(empresas.length).padStart(2, '0') : '··', l: 'Empresas conectadas' },
+              ].map((s, i) => (
+                <div key={i} className={`py-5 ${i !== 0 ? 'border-l hairline pl-5' : ''}`}>
+                  <div className="font-display leading-none" style={{ fontSize: 44, color: '#0B0F1A' }}>{s.n}</div>
+                  <div className="smallcaps text-[10.5px] mt-2" style={{ color: 'rgba(11,15,26,0.55)' }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tarjeta lateral */}
+          <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
+            <div className="border hairline rounded-lg overflow-hidden" style={{ background: '#FBFAF6' }}>
+              <div className="relative p-5 text-bone" style={{ background: '#0B0F1A' }}>
+                <div className="smallcaps text-[10px] font-semibold mb-2" style={{ color: '#C94A2A' }}>Perfil destacado</div>
+                {estudiantes[0] ? (
+                  <div className="flex items-start gap-3">
+                    <Monograma nombre={estudiantes[0].nombre} apellido={estudiantes[0].apellido} size={64} />
+                    <div>
+                      <div className="font-display text-[26px] leading-tight text-bone">{estudiantes[0].nombre}<br />{estudiantes[0].apellido}</div>
+                      <div className="smallcaps text-[10px] mt-1" style={{ color: 'rgba(246,243,236,0.6)' }}>{estudiantes[0].especialidad}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-16 flex items-center">
+                    <span className="text-bone/40 text-[13px]">Cargando perfil…</span>
+                  </div>
+                )}
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 text-[11px]" style={{ color: '#DFE8DA' }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#3F6A3A' }} /> Disponible
+                </div>
+              </div>
+              {estudiantes[0] && (
+                <div className="p-5 space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {estudiantes[0].habilidades.slice(0, 4).map(h => (
+                      <span key={h.id} className="text-[11px] px-2 py-0.5 rounded-sm" style={{ background: '#EDE7D8', color: 'rgba(11,15,26,0.75)' }}>{h.nombre}</span>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t hairline">
+                    <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'rgba(11,15,26,0.55)' }}>
+                      <IcoShield /> <span>{estudiantes[0].certificaciones.length} certificaciones</span>
+                    </div>
+                    <button className="text-[12px] font-medium flex items-center gap-1" style={{ color: '#C94A2A' }} onClick={() => abrirPerfil(estudiantes[0])}>
+                      Ver perfil <IcoArrow />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border hairline rounded-lg p-4 flex items-center gap-3" style={{ background: '#FBFAF6' }}>
+              <div className="w-10 h-10 flex items-center justify-center rounded-md" style={{ background: '#F2DAD0', color: '#C94A2A' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M13 2 3 14h7l-1 8 10-12h-7z" /></svg>
+              </div>
+              <div className="flex-1">
+                <div className="text-[13px] font-medium" style={{ color: '#0B0F1A' }}>Lanzamiento 2026</div>
+                <div className="text-[11px]" style={{ color: 'rgba(11,15,26,0.55)' }}>Programa Formación Dual abierto</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── TABS Estudiantes / Empresas ──────────────────────── */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex gap-1">
+      {/* ── MARQUEE EMPRESAS ─────────────────────────────── */}
+      {empresas.length > 0 && (
+        <section className="border-y hairline py-5 overflow-hidden" style={{ background: '#FBFAF6' }}>
+          <div className="flex items-center gap-10 whitespace-nowrap marquee" style={{ color: 'rgba(11,15,26,0.5)' }}>
+            {[...Array(2)].flatMap((_, r) => empresas.map(emp => (
+              <div key={`${emp.id}-${r}`} className="flex items-center gap-2.5 px-6 shrink-0">
+                <div className="w-6 h-6 rounded-sm" style={{ background: colorMonograma(emp.nombre) }} />
+                <span className="font-display text-[22px]">{emp.nombre}</span>
+                <span className="text-[10px] smallcaps">· {emp.rubro}</span>
+              </div>
+            )))}
+          </div>
+        </section>
+      )}
+
+      {/* ── DIRECTORIO ───────────────────────────────────── */}
+      <section id="directorio" className="max-w-[1240px] mx-auto px-6 py-14">
+        <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
+          <div>
+            <div className="smallcaps text-[11px] font-semibold" style={{ color: 'rgba(11,15,26,0.55)' }}>01 · Directorio</div>
+            <h2 className="font-display mt-2 leading-[1.02]" style={{ fontSize: 'clamp(36px, 5vw, 56px)', color: '#0B0F1A' }}>
+              Explora el talento<br />por especialidad.
+            </h2>
+          </div>
+          <div className="flex items-center gap-1 border hairline rounded-full p-1" style={{ background: '#FBFAF6' }}>
             {(["estudiantes", "empresas"] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setTabActivo(tab)}
-                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
-                  tabActivo === tab
-                    ? "border-[#F97316] text-[#F97316]"
-                    : "border-transparent text-gray-500 hover:text-gray-800"
-                }`}
+                className="px-4 h-8 rounded-full text-[12px] font-medium transition-colors"
+                style={{
+                  background: tabActivo === tab ? '#0B0F1A' : 'transparent',
+                  color: tabActivo === tab ? '#F6F3EC' : 'rgba(11,15,26,0.6)'
+                }}
               >
                 {tab === "estudiantes" ? "Estudiantes" : "Empresas"}
+                {tab === "estudiantes" && <span className="opacity-60 ml-1">({estudiantes.length})</span>}
               </button>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* ── GRID EMPRESAS ────────────────────────────────────── */}
-      {tabActivo === "empresas" && (
-        <section className="max-w-7xl mx-auto px-6 py-14">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8">Empresas conectadas</h2>
-          {cargandoEmpresas && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse h-32" />
+        {tabActivo === "estudiantes" && (
+          <>
+            {/* Búsqueda + filtro tipo */}
+            <div className="mb-6 flex flex-col md:flex-row items-stretch gap-3">
+              <div className="flex-1 flex items-center gap-2 px-4 h-12 border hairline-strong rounded-full text-[14px]" style={{ background: '#FBFAF6' }}>
+                <span style={{ color: 'rgba(11,15,26,0.5)' }}><IcoSearch /></span>
+                <input
+                  value={busqueda}
+                  onChange={e => setBusqueda(e.target.value)}
+                  placeholder="Busca por nombre, habilidad o especialidad…"
+                  className="flex-1 bg-transparent outline-none placeholder:text-ink/40"
+                  style={{ fontSize: 14 }}
+                />
+                {busqueda && (
+                  <button onClick={() => setBusqueda('')} style={{ color: 'rgba(11,15,26,0.4)' }}><IcoX /></button>
+                )}
+              </div>
+              <div className="flex items-center gap-1 border hairline rounded-full p-1 w-fit" style={{ background: '#FBFAF6' }}>
+                {(["TODOS", "PASANTIA", "FREELANCE"] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setFiltroTipo(t)}
+                    className="px-4 h-10 rounded-full text-[12px] font-medium transition-colors"
+                    style={{
+                      background: filtroTipo === t ? '#0B0F1A' : 'transparent',
+                      color: filtroTipo === t ? '#F6F3EC' : 'rgba(11,15,26,0.6)'
+                    }}
+                  >
+                    {t === 'TODOS' ? 'Todos' : t === 'PASANTIA' ? 'Pasantía' : 'Freelance'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chips especialidad */}
+            <div className="flex flex-wrap gap-2 mb-8">
+              <button
+                onClick={() => setFiltroEsp('')}
+                className="hover-lift text-[12px] font-medium tracking-wide px-3 py-1.5 rounded-full border transition-colors"
+                style={{
+                  background: filtroEsp === '' ? '#0B0F1A' : 'transparent',
+                  color: filtroEsp === '' ? '#F6F3EC' : '#0B0F1A',
+                  borderColor: filtroEsp === '' ? '#0B0F1A' : 'rgba(11,15,26,0.15)'
+                }}
+              >
+                Todas las especialidades
+              </button>
+              {especialidades.map(esp => (
+                <button
+                  key={esp}
+                  onClick={() => setFiltroEsp(filtroEsp === esp ? '' : esp)}
+                  className="hover-lift text-[12px] font-medium tracking-wide px-3 py-1.5 rounded-full border transition-colors"
+                  style={{
+                    background: filtroEsp === esp ? '#0B0F1A' : 'transparent',
+                    color: filtroEsp === esp ? '#F6F3EC' : '#0B0F1A',
+                    borderColor: filtroEsp === esp ? '#0B0F1A' : 'rgba(11,15,26,0.15)'
+                  }}
+                >
+                  {esp}
+                </button>
               ))}
             </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {empresas.map(emp => (
-              <Link key={emp.id} to={`/empresas/${emp.id}`}>
-                <Card className="hover:shadow-lg transition-shadow h-full border border-gray-100">
-                  <CardContent className="p-6 flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-[#DBEAFE] flex items-center justify-center shrink-0 font-bold text-[#0F172A] text-lg">
-                      {emp.logoUrl
-                        ? <img src={emp.logoUrl} alt={emp.nombre} className="w-full h-full object-cover rounded-xl" />
-                        : emp.nombre[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{emp.nombre}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">{emp.rubro}</p>
-                      {emp.descripcion && (
-                        <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{emp.descripcion}</p>
+
+            {/* Contador */}
+            <div className="mb-4 flex items-center justify-between">
+              <div className="font-mono-data text-[12px]" style={{ color: 'rgba(11,15,26,0.55)' }}>
+                {String(estudiantesFiltrados.length).padStart(3, '0')} / {String(estudiantes.length).padStart(3, '0')} resultados
+              </div>
+            </div>
+
+            {/* Loading */}
+            {cargando && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="border hairline rounded-lg p-5 animate-pulse" style={{ background: '#FBFAF6', height: 200 }} />
+                ))}
+              </div>
+            )}
+
+            {error && (
+              <div className="text-center py-16">
+                <p style={{ color: '#C94A2A' }} className="mb-3">{error}</p>
+                <button onClick={() => window.location.reload()} className="text-[13px] border hairline rounded-full px-4 h-9">Reintentar</button>
+              </div>
+            )}
+
+            {!cargando && !error && estudiantesFiltrados.length === 0 && (
+              <div className="text-center py-20" style={{ color: 'rgba(11,15,26,0.4)' }}>
+                <p className="text-[17px]">Sin resultados{busqueda ? ` para "${busqueda}"` : ''}.</p>
+              </div>
+            )}
+
+            {/* Grid estudiantes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {estudiantesFiltrados.map(est => (
+                <article
+                  key={est.id}
+                  onClick={() => abrirPerfil(est)}
+                  className="hover-lift cursor-pointer border hairline rounded-lg p-5"
+                  style={{ background: '#FBFAF6' }}
+                >
+                  <div className="flex items-start justify-between">
+                    <Monograma nombre={est.nombre} apellido={est.apellido} size={56} />
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      {est.disponible ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#3F6A3A' }} />
+                          <span className="font-medium" style={{ color: '#2E4E2B' }}>Disponible</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(11,15,26,0.25)' }} />
+                          <span style={{ color: 'rgba(11,15,26,0.5)' }}>En pasantía</span>
+                        </>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="font-display text-[22px] leading-tight" style={{ color: '#0B0F1A' }}>{est.nombre} {est.apellido}</div>
+                    <div className="smallcaps text-[10.5px] mt-1" style={{ color: 'rgba(11,15,26,0.55)' }}>
+                      {est.especialidad} · {labelDisp(est.tipoDisponibilidad)}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {est.habilidades.slice(0, 3).map(h => (
+                      <span key={h.id} className="text-[11px] px-2 py-0.5 rounded-sm" style={{ background: '#EDE7D8', color: 'rgba(11,15,26,0.8)' }}>
+                        {h.nombre}
+                      </span>
+                    ))}
+                    {est.habilidades.length > 3 && (
+                      <span className="text-[11px] px-1.5" style={{ color: 'rgba(11,15,26,0.4)' }}>+{est.habilidades.length - 3}</span>
+                    )}
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t hairline flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-[11px]" style={{ color: 'rgba(11,15,26,0.55)' }}>
+                      <IcoShield />
+                      <span className="smallcaps">{est.certificaciones.filter(c => c.validada).length} cert. validadas</span>
+                    </div>
+                    <div className="text-[12px] font-medium flex items-center gap-1" style={{ color: '#0B0F1A' }}>
+                      Ver perfil <IcoArrow />
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tabActivo === "empresas" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {cargandoEmpresas && [...Array(6)].map((_, i) => (
+              <div key={i} className="border hairline rounded-lg p-6 animate-pulse h-36" style={{ background: '#FBFAF6' }} />
+            ))}
+            {empresas.map(emp => (
+              <Link key={emp.id} to={`/empresas/${emp.id}`}>
+                <div className="hover-lift border hairline rounded-lg p-6 cursor-pointer h-full" style={{ background: '#FBFAF6' }}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-md shrink-0 flex items-center justify-center font-display text-[22px]"
+                      style={{ background: colorMonograma(emp.nombre), color: '#F6F3EC' }}>
+                      {emp.nombre[0]}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-display text-[22px] leading-tight">{emp.nombre}</div>
+                      <div className="smallcaps text-[10.5px] mt-1" style={{ color: 'rgba(11,15,26,0.55)' }}>{emp.rubro}</div>
+                    </div>
+                  </div>
+                  {emp.descripcion && (
+                    <p className="text-[13px] mt-4 leading-relaxed line-clamp-2" style={{ color: 'rgba(11,15,26,0.65)' }}>
+                      {emp.descripcion}
+                    </p>
+                  )}
+                  <div className="mt-4 pt-4 border-t hairline flex items-center justify-between text-[12px]">
+                    <span style={{ color: 'rgba(11,15,26,0.6)' }}>Ver empresa</span>
+                    <span className="font-medium flex items-center gap-1" style={{ color: '#C94A2A' }}>
+                      Visitar <IcoArrow />
+                    </span>
+                  </div>
+                </div>
               </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── CÓMO FUNCIONA ────────────────────────────────── */}
+      <section className="border-t hairline text-bone" style={{ background: '#0B0F1A' }}>
+        <div className="max-w-[1240px] mx-auto px-6 py-20 grid grid-cols-12 gap-10">
+          <div className="col-span-12 md:col-span-5">
+            <div className="smallcaps text-[11px] font-semibold" style={{ color: '#C94A2A' }}>02 · Cómo funciona</div>
+            <h2 className="font-display leading-[1.02] mt-3 text-bone" style={{ fontSize: 'clamp(36px, 5vw, 60px)' }}>
+              Tres actores,<br />una sola red.
+            </h2>
+            <p className="mt-6 max-w-[380px] text-[15px] leading-relaxed" style={{ color: 'rgba(246,243,236,0.7)' }}>
+              ImpulsaTec conecta a estudiantes, colegios y empresas en una sola plataforma. El colegio valida; los estudiantes postulan; las empresas contratan.
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-7 grid grid-cols-1 gap-0 border-t" style={{ borderColor: 'rgba(246,243,236,0.15)' }}>
+            {[
+              { n: '01', t: 'Estudiantes', d: 'Publica tu perfil, habilidades y certificaciones. Postula a ofertas reales con un clic.', link: true, label: 'Soy estudiante', to: '/registro' },
+              { n: '02', t: 'Empresas', d: 'Accede a talento validado por el colegio. Publica ofertas y contacta directamente.', link: true, label: 'Soy empresa', to: '/registro' },
+              { n: '03', t: 'Colegio', d: 'Administra el directorio, valida habilidades y conecta tu comunidad educativa.', link: false, label: '', to: '/' },
+            ].map(row => (
+              <div
+                key={row.n}
+                className="py-7 grid grid-cols-12 gap-4 items-baseline px-2 -mx-2 rounded"
+                style={{ borderBottom: '1px solid rgba(246,243,236,0.15)' }}
+              >
+                <div className="col-span-2 font-mono-data text-[12px]" style={{ color: '#C94A2A' }}>{row.n}</div>
+                <div className="col-span-3 font-display text-[28px] leading-tight text-bone">{row.t}</div>
+                <div className="col-span-5 text-[13.5px] leading-relaxed" style={{ color: 'rgba(246,243,236,0.7)' }}>{row.d}</div>
+                <div className="col-span-2 text-right">
+                  {row.link && (
+                    <Link to={row.to}>
+                      <button className="text-[12px] font-medium flex items-center gap-1 justify-end ml-auto text-bone hover:text-terra">
+                        {row.label} <IcoArrow />
+                      </button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── NOVEDADES DEL COLEGIO ────────────────────────── */}
+      {novedadesColegio.length > 0 && (
+        <section className="max-w-[1240px] mx-auto px-6 py-20">
+          <div className="flex items-end justify-between mb-10 flex-wrap gap-4">
+            <div>
+              <div className="smallcaps text-[11px] font-semibold" style={{ color: 'rgba(11,15,26,0.55)' }}>03 · Novedades</div>
+              <h2 className="font-display text-[48px] leading-tight mt-2" style={{ color: '#0B0F1A' }}>Desde el colegio</h2>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {novedadesColegio.slice(0, 3).map(novedad => (
+              <article key={novedad.id} className="hover-lift border hairline rounded-lg overflow-hidden cursor-pointer" style={{ background: '#FBFAF6' }}>
+                {novedad.mediaUrl && novedad.mediaType === 'IMAGEN' && (
+                  <img src={novedad.mediaUrl} alt="" className="w-full h-44 object-cover" loading="lazy" />
+                )}
+                {novedad.mediaUrl && novedad.mediaType === 'VIDEO' && (
+                  <video src={novedad.mediaUrl} className="w-full h-44 object-cover" />
+                )}
+                {!novedad.mediaUrl && (
+                  <div className="h-44 placeholder-stripe" style={{ background: '#EDE7D8' }}>
+                    <div className="h-full flex items-end p-3">
+                      <span className="font-mono-data text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(246,243,236,0.8)', color: 'rgba(11,15,26,0.5)' }}>imagen</span>
+                    </div>
+                  </div>
+                )}
+                <div className="p-5">
+                  <div className="flex items-center gap-2 text-[11px] mb-3" style={{ color: 'rgba(11,15,26,0.55)' }}>
+                    <span className="smallcaps font-semibold" style={{ color: '#C94A2A' }}>Novedad</span>
+                    <span className="divider-dot" />
+                    {tiempoRelativo(novedad.creadoEn)}
+                  </div>
+                  <p className="text-[13px] leading-relaxed" style={{ color: 'rgba(11,15,26,0.75)' }}>{novedad.contenido}</p>
+                </div>
+              </article>
             ))}
           </div>
         </section>
       )}
 
-      {/* ── DIRECTORIO ───────────────────────────────────────── */}
-      {tabActivo === "estudiantes" && (
-      <section className="max-w-7xl mx-auto px-6 py-14">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Talento Disponible</h2>
-            <p className="text-sm text-gray-500">
-              {busqueda
-                ? `${estudiantesFiltrados.length} resultado${estudiantesFiltrados.length !== 1 ? "s" : ""} para "${busqueda}"`
-                : "Estudiantes técnicos con habilidades certificadas"}
-            </p>
+      {/* ── CTA EMPRESAS ─────────────────────────────────── */}
+      <section className="border-t hairline text-bone" style={{ background: '#C94A2A' }}>
+        <div className="max-w-[1240px] mx-auto px-6 py-20 grid grid-cols-12 gap-8 items-end">
+          <div className="col-span-12 md:col-span-8">
+            <div className="smallcaps text-[11px]" style={{ color: 'rgba(246,243,236,0.7)' }}>04 · Para empresas</div>
+            <h2 className="font-display leading-[0.95] mt-3 text-bone" style={{ fontSize: 'clamp(44px, 7vw, 80px)' }}>
+              Encuentra talento<br />que ya sabe <span className="italic">hacer.</span>
+            </h2>
           </div>
-          {busqueda && (
-            <Button variant="outline" size="sm" onClick={() => setBusqueda("")}>
-              Limpiar filtro
-            </Button>
-          )}
+          <div className="col-span-12 md:col-span-4 flex flex-col gap-3">
+            <p className="text-[14px] leading-relaxed" style={{ color: 'rgba(246,243,236,0.85)' }}>
+              Crea tu cuenta gratis, publica tu primera oferta en minutos y recibe postulaciones validadas por el colegio.
+            </p>
+            <Link to="/registro">
+              <button className="hover-lift inline-flex items-center gap-2 rounded-full font-medium h-12 px-6 text-[14px] w-fit"
+                style={{ background: '#0B0F1A', color: '#F6F3EC' }}>
+                Crear cuenta de empresa <IcoArrow />
+              </button>
+            </Link>
+          </div>
         </div>
+      </section>
 
-        {cargando && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-20 h-20 bg-gray-200 rounded-full" />
-                  <div className="h-4 bg-gray-200 rounded w-32" />
-                  <div className="h-3 bg-gray-100 rounded w-24" />
-                  <div className="flex gap-2 mt-2">
-                    <div className="h-6 bg-gray-100 rounded-full w-16" />
-                    <div className="h-6 bg-gray-100 rounded-full w-20" />
-                  </div>
-                </div>
+      {/* ── FOOTER ───────────────────────────────────────── */}
+      <footer style={{ background: '#0B0F1A', color: 'rgba(246,243,236,0.7)' }}>
+        <div className="max-w-[1240px] mx-auto px-6 py-14">
+          <div className="grid grid-cols-12 gap-8 pb-10 border-b" style={{ borderColor: 'rgba(246,243,236,0.1)' }}>
+            <div className="col-span-12 md:col-span-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <img src={logoImage} alt="Logo" className="h-9 bg-white rounded px-1 py-0.5" />
+                <div className="font-display text-[22px] text-bone">ImpulsaTec</div>
               </div>
-            ))}
-          </div>
-        )}
-
-        {error && (
-          <div className="text-center py-16">
-            <p className="text-red-500 mb-3">{error}</p>
-            <Button variant="outline" onClick={() => window.location.reload()}>Reintentar</Button>
-          </div>
-        )}
-
-        <AnimatePresence mode="wait">
-          {!cargando && !error && estudiantesFiltrados.length === 0 && (
-            <motion.div
-              key="vacio"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-center py-20 text-gray-400"
-            >
-              <Zap className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-lg font-medium">
-                {busqueda ? `Sin resultados para "${busqueda}"` : "No hay estudiantes registrados aún."}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {estudiantesFiltrados.map((est, i) => {
-            const nombreCompleto = `${est.nombre} ${est.apellido}`
-            return (
-              <motion.div
-                key={est.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.05, ease: "easeOut" }}
-                whileHover={{ y: -5, transition: { duration: 0.2 } }}
-              >
-                <Card className="overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-shadow duration-300 h-full">
-                  {/* Franja superior de color */}
-                  <div className={`h-1.5 w-full bg-gradient-to-r ${gradienteAvatar(est.nombre)}`} />
-                  <CardContent className="p-6">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="relative mb-4">
-                        <Avatar className="w-20 h-20">
-                          {est.fotoUrl && <AvatarImage src={est.fotoUrl} />}
-                          <AvatarFallback className={`bg-gradient-to-br ${gradienteAvatar(est.nombre)} text-white font-bold text-xl`}>
-                            {est.nombre[0]}{est.apellido[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        {est.disponible && (
-                          <span className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white" title="Disponible" />
-                        )}
-                      </div>
-
-                      <h3 className="font-semibold text-gray-900 text-base mb-0.5">{nombreCompleto}</h3>
-                      <p className="text-xs font-medium text-[#0F172A] mb-2 uppercase tracking-wide">{est.especialidad}</p>
-
-                      {/* Badge tipo disponibilidad */}
-                      <div className="mb-3">
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                          est.tipoDisponibilidad === "FREELANCE"
-                            ? "bg-purple-100 text-purple-700"
-                            : est.tipoDisponibilidad === "AMBOS"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}>
-                          {est.tipoDisponibilidad === "PASANTIA" ? "Pasantía"
-                            : est.tipoDisponibilidad === "FREELANCE" ? "Freelance"
-                            : "Pasantía & Freelance"}
-                        </span>
-                      </div>
-
-                      {est.habilidades.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 justify-center mb-4">
-                          {est.habilidades.slice(0, 3).map(h => (
-                            <span key={h.id} className="text-xs bg-[#DBEAFE] text-[#0F172A] px-2.5 py-1 rounded-full font-medium">
-                              {h.nombre}
-                            </span>
-                          ))}
-                          {est.habilidades.length > 3 && (
-                            <span className="text-xs text-gray-400 px-2 py-1">+{est.habilidades.length - 3}</span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-1.5 text-emerald-600 text-xs mb-5">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        <span>Validado por {est.colegio.nombre.split(" ").slice(0, 3).join(" ")}…</span>
-                      </div>
-
-                      <Button
-                        className="w-full bg-[#0F172A] hover:bg-[#2563EB] text-white rounded-lg text-sm font-medium transition-all duration-200"
-                        onClick={() => abrirPerfil(est)}
-                      >
-                        Ver perfil completo
-                        <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )
-          })}
-        </div>
-      </section>
-      )} {/* fin tabActivo === "estudiantes" */}
-
-      {/* ── DIÁLOGO: Perfil completo ────────────────────────── */}
-      <Dialog open={!!estudianteSel} onOpenChange={abierto => { if (!abierto) setEstudianteSel(null) }}>
-        {estudianteSel && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-0">
-            <DialogHeader className="sr-only">
-              <DialogTitle>{estudianteSel.nombre} {estudianteSel.apellido}</DialogTitle>
-            </DialogHeader>
-
-            <AnimatePresence mode="wait">
-              {!vistaContacto ? (
-                // ── VISTA PERFIL ────────────────────────────────
-                <motion.div
-                  key="perfil"
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -16 }}
-                  transition={{ duration: 0.22 }}
-                >
-                  {/* Banner + avatar */}
-                  <div className={`relative bg-gradient-to-br ${gradienteAvatar(estudianteSel.nombre)} px-6 pt-8 pb-16`}>
-                    <div className="flex items-start gap-4">
-                      <Avatar className="w-24 h-24 border-4 border-white/30 shadow-xl shrink-0">
-                        {estudianteSel.fotoUrl && <AvatarImage src={estudianteSel.fotoUrl} />}
-                        <AvatarFallback className="bg-white/20 text-white font-bold text-3xl">
-                          {estudianteSel.nombre[0]}{estudianteSel.apellido[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="text-white pt-1">
-                        <h2 className="text-2xl font-bold leading-tight">
-                          {estudianteSel.nombre} {estudianteSel.apellido}
-                        </h2>
-                        <p className="text-white/80 text-sm font-medium mt-0.5 uppercase tracking-wide">
-                          {estudianteSel.especialidad}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-2 text-white/70 text-xs">
-                          <GraduationCap className="w-3.5 h-3.5" />
-                          <span>{estudianteSel.colegio.nombre}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Badge disponibilidad */}
-                    <div className="absolute bottom-4 right-5">
-                      <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
-                        estudianteSel.disponible
-                          ? "bg-emerald-500/20 border-emerald-300/40 text-white"
-                          : "bg-white/10 border-white/20 text-white/70"
-                      }`}>
-                        {estudianteSel.disponible ? "● Disponible para pasantía" : "En pasantía"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="px-6 py-5 space-y-5">
-                    {/* Descripción */}
-                    {estudianteSel.descripcion && (
-                      <div>
-                        <p className="text-sm text-gray-700 leading-relaxed">{estudianteSel.descripcion}</p>
-                      </div>
-                    )}
-
-                    {/* Estadísticas rápidas */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
-                        <Star className="w-4 h-4 mx-auto mb-1 text-blue-600" />
-                        <p className="text-lg font-bold text-gray-900">{estudianteSel.habilidades.length}</p>
-                        <p className="text-xs text-gray-500">Habilidades</p>
-                        <p className="text-xs text-blue-600 font-medium">{estudianteSel.habilidades.filter(h => h.validada).length} validadas</p>
-                      </div>
-                      <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
-                        <Award className="w-4 h-4 mx-auto mb-1 text-emerald-600" />
-                        <p className="text-lg font-bold text-gray-900">{estudianteSel.certificaciones.length}</p>
-                        <p className="text-xs text-gray-500">Certificaciones</p>
-                        <p className="text-xs text-emerald-600 font-medium">{estudianteSel.certificaciones.filter(c => c.validada).length} validadas</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
-                        <Briefcase className="w-4 h-4 mx-auto mb-1 text-[#0F172A]" />
-                        <p className="text-sm font-bold text-gray-900 leading-tight">{estudianteSel.especialidad}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Especialidad</p>
-                      </div>
-                    </div>
-
-                    {/* Habilidades — listado con validación */}
-                    {estudianteSel.habilidades.length > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">Habilidades</h3>
-                          <span className="text-xs text-gray-400">
-                            {estudianteSel.habilidades.filter(h => h.validada).length}/{estudianteSel.habilidades.length} validadas por el colegio
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {estudianteSel.habilidades.map(h => (
-                            <div
-                              key={h.id}
-                              className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
-                                h.validada ? "bg-blue-50 border-blue-100" : "bg-gray-50 border-gray-100"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <div className={`w-2 h-2 rounded-full shrink-0 ${h.validada ? "bg-blue-500" : "bg-gray-300"}`} />
-                                <span className="text-sm font-medium text-gray-800">{h.nombre}</span>
-                              </div>
-                              {h.validada ? (
-                                <span className="text-xs font-medium text-blue-600 flex items-center gap-1">
-                                  <CheckCircle className="w-3.5 h-3.5" /> Validada
-                                </span>
-                              ) : (
-                                <span className="text-xs text-gray-400">Pendiente</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Certificaciones — listado con validación */}
-                    {estudianteSel.certificaciones.length > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">Certificaciones técnicas</h3>
-                          <span className="text-xs text-gray-400">
-                            {estudianteSel.certificaciones.filter(c => c.validada).length}/{estudianteSel.certificaciones.length} validadas
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {estudianteSel.certificaciones.map(cert => (
-                            <div
-                              key={cert.id}
-                              className={`flex items-center gap-3 p-3 rounded-xl border ${
-                                cert.validada ? "bg-emerald-50 border-emerald-100" : "bg-gray-50 border-gray-100"
-                              }`}
-                            >
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                cert.validada ? "bg-emerald-500" : "bg-gray-200"
-                              }`}>
-                                <CheckCircle className={`w-4 h-4 ${cert.validada ? "text-white" : "text-gray-400"}`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-800">{cert.nombre}</p>
-                                {cert.institucion && (
-                                  <p className="text-xs text-gray-500 mt-0.5">{cert.institucion}</p>
-                                )}
-                              </div>
-                              {cert.validada ? (
-                                <span className="text-xs font-medium text-emerald-600 shrink-0">Validada</span>
-                              ) : (
-                                <span className="text-xs text-gray-400 shrink-0">Pendiente</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* CTA contactar */}
-                    <div className="pt-1 border-t border-gray-100">
-                      <Button
-                        className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl h-11 text-sm font-semibold"
-                        onClick={() => setVistaContacto(true)}
-                      >
-                        <Mail className="w-4 h-4 mr-2" />
-                        Contactar vía el colegio
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : (
-                // ── VISTA FORMULARIO DE CONTACTO ────────────────
-                <motion.div
-                  key="contacto"
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ duration: 0.22 }}
-                  className="px-6 py-6 space-y-4"
-                >
-                  <button
-                    onClick={() => setVistaContacto(false)}
-                    className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-2"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Volver al perfil
-                  </button>
-
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900">Contactar a {estudianteSel.nombre}</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">El colegio coordinará el contacto con el estudiante.</p>
-                  </div>
-
-                  {contactoEnviado ? (
-                    <div className="text-center py-10 space-y-3">
-                      <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-                        <CheckCircle className="w-7 h-7 text-emerald-600" />
-                      </div>
-                      <p className="font-semibold text-gray-900">¡Solicitud enviada!</p>
-                      <p className="text-sm text-gray-500">El colegio se pondrá en contacto contigo pronto.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label htmlFor="nombreRemitente" className="text-xs">Tu nombre</Label>
-                          <Input
-                            id="nombreRemitente"
-                            placeholder="Juan Pérez"
-                            value={formContacto.nombreRemitente}
-                            onChange={e => setFormContacto(prev => ({ ...prev, nombreRemitente: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="emailRemitente" className="text-xs">Tu email</Label>
-                          <Input
-                            id="emailRemitente"
-                            type="email"
-                            placeholder="juan@empresa.cl"
-                            value={formContacto.emailRemitente}
-                            onChange={e => setFormContacto(prev => ({ ...prev, emailRemitente: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="mensaje" className="text-xs">Mensaje</Label>
-                        <Textarea
-                          id="mensaje"
-                          placeholder="Cuéntanos sobre la oportunidad de pasantía..."
-                          rows={4}
-                          value={formContacto.mensaje}
-                          onChange={e => setFormContacto(prev => ({ ...prev, mensaje: e.target.value }))}
-                        />
-                      </div>
-                      <Button
-                        className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-xl h-11"
-                        onClick={enviarContacto}
-                        disabled={enviandoContacto || !formContacto.nombreRemitente || !formContacto.emailRemitente || !formContacto.mensaje}
-                      >
-                        <Mail className="w-4 h-4 mr-2" />
-                        {enviandoContacto ? "Enviando..." : "Enviar solicitud"}
-                      </Button>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </DialogContent>
-        )}
-      </Dialog>
-
-      {/* ── SECCIÓN: NOVEDADES DEL COLEGIO ────────────────────── */}
-      <section className="mt-16 pb-16">
-        <div className="max-w-2xl mx-auto px-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-[#0F172A] rounded-lg flex items-center justify-center">
-              <Newspaper className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-[#0F172A]">Novedades del colegio</h2>
-              <p className="text-xs text-gray-400">Anuncios oficiales del Centro Educacional Cardenal José María Caro</p>
-            </div>
-          </div>
-
-          {cargandoNovedades && (
-            <div className="flex items-center justify-center py-10 text-gray-400 gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Cargando novedades...</span>
-            </div>
-          )}
-
-          {!cargandoNovedades && novedadesColegio.length === 0 && (
-            <div className="py-10 text-center text-gray-400">
-              <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No hay novedades publicadas aún.</p>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {novedadesColegio.map(novedad => {
-              const diff = Date.now() - new Date(novedad.creadoEn).getTime()
-              const min = Math.floor(diff / 60000)
-              const tiempo = min < 1 ? "Ahora mismo"
-                : min < 60 ? `Hace ${min} min`
-                : min < 1440 ? `Hace ${Math.floor(min / 60)}h`
-                : `Hace ${Math.floor(min / 1440)} día${Math.floor(min / 1440) > 1 ? "s" : ""}`
-
-              return (
-                <Card key={novedad.id} className="border-0 shadow-sm">
-                  <CardContent className="p-5">
-                    <div className="flex gap-3 mb-3">
-                      <Avatar className="w-10 h-10 shrink-0">
-                        {novedad.administrador?.colegio.logoUrl && (
-                          <AvatarImage src={novedad.administrador.colegio.logoUrl} />
-                        )}
-                        <AvatarFallback>
-                          {novedad.administrador?.colegio.nombre[0] ?? "C"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h4 className="font-semibold text-sm text-gray-900">
-                          {novedad.administrador?.colegio.nombre ?? "Colegio"}
-                        </h4>
-                        <p className="text-xs text-gray-400 mt-0.5">{tiempo}</p>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-gray-700 leading-relaxed">{novedad.contenido}</p>
-
-                    {novedad.mediaUrl && novedad.mediaType === 'IMAGEN' && (
-                      <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
-                        <img
-                          src={novedad.mediaUrl}
-                          alt="Imagen de novedad"
-                          className="w-full max-h-80 object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
-                    {novedad.mediaUrl && novedad.mediaType === 'VIDEO' && (
-                      <div className="mt-3 rounded-xl overflow-hidden border border-gray-100">
-                        <video src={novedad.mediaUrl} controls className="w-full max-h-80" />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ──────────────────────────────────────────────── */}
-      <section className="relative bg-[#0F172A] text-white py-20 overflow-hidden">
-        <div className="animar-brillar absolute -top-20 right-0 w-80 h-80 bg-[#F97316]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <p className="text-[#F97316] font-semibold text-sm uppercase tracking-widest mb-3">¿Buscas talento?</p>
-            <h2 className="text-3xl font-bold mb-4">Conecta con el talento técnico de Chile</h2>
-            <p className="text-white/70 text-base mb-8 leading-relaxed">
-              Accede a perfiles completos, publica ofertas de pasantía y contrata
-              talento técnico certificado directamente desde el colegio.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/empresa">
-                <Button size="lg" className="bg-[#F97316] hover:bg-[#EA580C] text-white px-8 rounded-xl font-semibold shadow-lg shadow-orange-900/30">
-                  Registrar empresa
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-              <Link to="/estudiante">
-                <Button size="lg" variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-8 rounded-xl backdrop-blur-sm">
-                  Soy estudiante
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── FOOTER ───────────────────────────────────────────── */}
-      <footer className="bg-gray-950 text-white">
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-8 border-b border-white/10">
-            <div className="md:col-span-1">
-              <img src={logoImage} alt="Logo" className="h-11 bg-white rounded-lg px-2 py-1.5 mb-4" />
-              <p className="text-gray-400 text-sm leading-relaxed">
+              <p className="text-[13px] leading-relaxed max-w-sm">
+                Directorio oficial del Centro Educacional Cardenal José María Caro.<br />
                 Conectando talento técnico con oportunidades reales en Chile.
               </p>
             </div>
             {[
-              {
-                titulo: "Estudiantes",
-                links: ["Crear perfil", "Buscar pasantías", "Recursos"],
-              },
-              {
-                titulo: "Empresas",
-                links: ["Publicar oferta", "Buscar talento", "Planes"],
-              },
-              {
-                titulo: "Contacto",
-                links: ["info@impulsatec.cl", "+569 2346 1235", "Santiago, Chile"],
-              },
+              { t: 'Estudiantes', l: ['Crear perfil', 'Buscar pasantías', 'Recursos', 'Postulaciones'] },
+              { t: 'Empresas', l: ['Publicar oferta', 'Buscar talento', 'Contratación'] },
+              { t: 'Contacto', l: ['info@impulsatec.cl', '+56 9 2346 1235', 'Santiago, Chile'] },
             ].map(col => (
-              <div key={col.titulo}>
-                <h4 className="font-semibold text-sm uppercase tracking-wide text-gray-300 mb-3">{col.titulo}</h4>
-                <ul className="space-y-2">
-                  {col.links.map(link => (
-                    <li key={link}>
-                      <a href="#" className="text-gray-500 hover:text-white text-sm transition-colors">{link}</a>
-                    </li>
+              <div key={col.t} className="col-span-6 md:col-span-2">
+                <div className="smallcaps text-[11px] font-semibold mb-4 block" style={{ color: 'rgba(246,243,236,0.55)' }}>{col.t}</div>
+                <ul className="space-y-2 mt-3">
+                  {col.l.map(x => (
+                    <li key={x}><a className="text-[13px] hover:text-bone cursor-pointer">{x}</a></li>
                   ))}
                 </ul>
               </div>
             ))}
           </div>
-          <p className="text-center text-gray-600 text-xs mt-8">
-            © 2026 ImpulsaTec · Centro Educacional Cardenal José María Caro. Todos los derechos reservados.
-          </p>
+          <div className="flex items-center justify-between pt-6 text-[11px]" style={{ color: 'rgba(246,243,236,0.5)' }}>
+            <div>© 2026 ImpulsaTec · Todos los derechos reservados</div>
+            <div className="flex items-center gap-5">
+              <a className="hover:text-bone cursor-pointer">Términos</a>
+              <a className="hover:text-bone cursor-pointer">Privacidad</a>
+            </div>
+          </div>
         </div>
       </footer>
+
+      {/* ── DIÁLOGO: Perfil completo ──────────────────────── */}
+      <Dialog open={!!estudianteSel} onOpenChange={abierto => { if (!abierto) setEstudianteSel(null) }}>
+        {estudianteSel && (
+          <DialogContent className="max-w-[680px] max-h-[90vh] overflow-y-auto rounded-lg p-0 border hairline">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{estudianteSel.nombre} {estudianteSel.apellido}</DialogTitle>
+            </DialogHeader>
+
+            {!vistaContacto ? (
+              /* Vista perfil */
+              <div>
+                <div className="relative px-8 pt-8 pb-6 text-bone" style={{ background: '#0B0F1A' }}>
+                  <button
+                    onClick={() => setEstudianteSel(null)}
+                    className="absolute top-4 right-4 p-1.5 rounded-full"
+                    style={{ color: 'rgba(246,243,236,0.6)' }}
+                  >
+                    <IcoX />
+                  </button>
+                  <div className="flex items-start gap-5">
+                    <Monograma nombre={estudianteSel.nombre} apellido={estudianteSel.apellido} size={88} />
+                    <div>
+                      <div className="smallcaps text-[10px] font-semibold" style={{ color: '#C94A2A' }}>Perfil validado</div>
+                      <div className="font-display text-[44px] leading-none mt-2 text-bone">
+                        {estudianteSel.nombre}<br />{estudianteSel.apellido}
+                      </div>
+                      <div className="smallcaps text-[10.5px] mt-3" style={{ color: 'rgba(246,243,236,0.6)' }}>
+                        {estudianteSel.especialidad} · {labelDisp(estudianteSel.tipoDisponibilidad)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-8 space-y-7">
+                  {estudianteSel.descripcion && (
+                    <p className="text-[14px] leading-relaxed" style={{ color: 'rgba(11,15,26,0.75)' }}>
+                      {estudianteSel.descripcion}
+                    </p>
+                  )}
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 border-y hairline">
+                    {[
+                      { n: estudianteSel.habilidades.length, l: 'Habilidades' },
+                      { n: estudianteSel.certificaciones.length, l: 'Certificaciones' },
+                      { n: estudianteSel.habilidades.filter(h => h.validada).length, l: 'Validadas' },
+                    ].map((s, i) => (
+                      <div key={i} className={`py-4 text-center ${i !== 0 ? 'border-l hairline' : ''}`}>
+                        <div className="font-display text-[32px] leading-none">{s.n}</div>
+                        <div className="smallcaps text-[10px] mt-1.5" style={{ color: 'rgba(11,15,26,0.55)' }}>{s.l}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Habilidades */}
+                  {estudianteSel.habilidades.length > 0 && (
+                    <div>
+                      <div className="smallcaps text-[11px] font-semibold mb-3" style={{ color: 'rgba(11,15,26,0.55)' }}>Habilidades</div>
+                      <div className="space-y-2">
+                        {estudianteSel.habilidades.map(h => (
+                          <div key={h.id} className="flex items-center justify-between py-2.5 px-3 border hairline rounded-md" style={{ background: '#F6F3EC' }}>
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-1.5 h-1.5 rounded-full" style={{ background: h.validada ? '#3F6A3A' : 'rgba(11,15,26,0.25)' }} />
+                              <span className="text-[13px]">{h.nombre}</span>
+                            </div>
+                            <span className="smallcaps text-[10px] font-semibold" style={{ color: h.validada ? '#2E4E2B' : 'rgba(11,15,26,0.4)' }}>
+                              {h.validada ? 'Validada' : 'Pendiente'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Certificaciones */}
+                  {estudianteSel.certificaciones.length > 0 && (
+                    <div>
+                      <div className="smallcaps text-[11px] font-semibold mb-3" style={{ color: 'rgba(11,15,26,0.55)' }}>Certificaciones</div>
+                      <div className="space-y-2">
+                        {estudianteSel.certificaciones.map(cert => (
+                          <div key={cert.id} className="flex items-center gap-3 p-3 border rounded-md"
+                            style={{ background: cert.validada ? '#DFE8DA' : '#F6F3EC', borderColor: cert.validada ? 'rgba(63,106,58,0.2)' : 'rgba(11,15,26,0.12)' }}>
+                            <div className="w-8 h-8 rounded-sm flex items-center justify-center shrink-0 text-bone"
+                              style={{ background: cert.validada ? '#3F6A3A' : '#EDE7D8', color: cert.validada ? '#F6F3EC' : 'rgba(11,15,26,0.4)' }}>
+                              <IcoShield />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-[13px] font-medium">{cert.nombre}</div>
+                              {cert.institucion && <div className="text-[11px]" style={{ color: 'rgba(11,15,26,0.55)' }}>{cert.institucion}</div>}
+                            </div>
+                            <span className="smallcaps text-[10px] font-semibold" style={{ color: cert.validada ? '#2E4E2B' : 'rgba(11,15,26,0.4)' }}>
+                              {cert.validada ? 'Validada' : 'Pendiente'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    className="hover-lift w-full h-12 rounded-full font-medium text-[14px] flex items-center justify-center gap-2"
+                    style={{ background: '#C94A2A', color: '#F6F3EC' }}
+                    onClick={() => setVistaContacto(true)}
+                  >
+                    Contactar vía el colegio <IcoArrow />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Vista contacto */
+              <div className="p-8 space-y-5">
+                <button
+                  onClick={() => setVistaContacto(false)}
+                  className="text-[12px] flex items-center gap-1"
+                  style={{ color: 'rgba(11,15,26,0.55)' }}
+                >
+                  ← Volver al perfil
+                </button>
+                <div>
+                  <div className="font-display text-[32px] leading-tight">Contactar a {estudianteSel.nombre}</div>
+                  <p className="text-[13px] mt-1" style={{ color: 'rgba(11,15,26,0.6)' }}>El colegio coordinará el contacto directamente con el estudiante.</p>
+                </div>
+
+                {contactoEnviado ? (
+                  <div className="text-center py-10 space-y-3">
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto" style={{ background: '#DFE8DA', color: '#3F6A3A' }}>
+                      <IcoCheck />
+                    </div>
+                    <p className="font-semibold">¡Solicitud enviada!</p>
+                    <p className="text-[13px]" style={{ color: 'rgba(11,15,26,0.6)' }}>El colegio se pondrá en contacto contigo pronto.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="smallcaps text-[11px] font-semibold mb-1.5" style={{ color: 'rgba(11,15,26,0.55)' }}>Tu nombre</div>
+                        <input
+                          placeholder="Nombre y apellido"
+                          className="w-full border hairline-strong rounded-md px-3 h-10 text-[13px] outline-none focus:border-ink"
+                          style={{ background: '#FBFAF6' }}
+                          value={formContacto.nombreRemitente}
+                          onChange={e => setFormContacto(prev => ({ ...prev, nombreRemitente: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <div className="smallcaps text-[11px] font-semibold mb-1.5" style={{ color: 'rgba(11,15,26,0.55)' }}>Email corporativo</div>
+                        <input
+                          type="email"
+                          placeholder="tu@empresa.cl"
+                          className="w-full border hairline-strong rounded-md px-3 h-10 text-[13px] outline-none focus:border-ink"
+                          style={{ background: '#FBFAF6' }}
+                          value={formContacto.emailRemitente}
+                          onChange={e => setFormContacto(prev => ({ ...prev, emailRemitente: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="smallcaps text-[11px] font-semibold mb-1.5" style={{ color: 'rgba(11,15,26,0.55)' }}>Mensaje</div>
+                      <textarea
+                        rows={4}
+                        placeholder="Cuéntanos sobre la oportunidad de pasantía o proyecto freelance…"
+                        className="w-full border hairline-strong rounded-md px-3 py-2.5 text-[13px] outline-none focus:border-ink resize-none"
+                        style={{ background: '#FBFAF6' }}
+                        value={formContacto.mensaje}
+                        onChange={e => setFormContacto(prev => ({ ...prev, mensaje: e.target.value }))}
+                      />
+                    </div>
+                    <button
+                      className="hover-lift w-full h-12 rounded-full font-medium text-[14px] flex items-center justify-center gap-2 disabled:opacity-50"
+                      style={{ background: '#C94A2A', color: '#F6F3EC' }}
+                      onClick={enviarContacto}
+                      disabled={enviandoContacto || !formContacto.nombreRemitente || !formContacto.emailRemitente || !formContacto.mensaje}
+                    >
+                      {enviandoContacto ? 'Enviando…' : <>Enviar solicitud <IcoSend /></>}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }
