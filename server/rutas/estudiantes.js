@@ -29,10 +29,19 @@ router.get('/', async (req, res) => {
   try {
     const estudiantes = await prisma.estudiante.findMany({
       where: filtros,
-      include: {
-        habilidades: true,
+      select: {
+        id: true,
+        nombre: true,
+        apellido: true,
+        especialidad: true,
+        descripcion: true,
+        fotoUrl: true,
+        disponible: true,
+        tipoDisponibilidad: true,
+        creadoEn: true,
         colegio: { select: { nombre: true } },
-        certificaciones: true,
+        habilidades: { select: { id: true, nombre: true, validada: true } },
+        certificaciones: { select: { id: true, nombre: true, institucion: true, validada: true } },
       },
       orderBy: { creadoEn: 'desc' },
     })

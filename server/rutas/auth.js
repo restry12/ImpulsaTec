@@ -2,6 +2,7 @@ const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const rateLimit = require('express-rate-limit')
+const { z } = require('zod')
 const prisma = require('../prismaClient')
 
 const router = express.Router()
@@ -27,9 +28,20 @@ function generarToken(usuario) {
 // POST /api/auth/registro
 // Crea un Usuario base + el perfil según su rol (ESTUDIANTE, EMPRESA, ADMINISTRADOR)
 router.post('/registro', async (req, res) => {
+  const esquemaRegistro = z.object({
+    email: z.string().email({ message: 'Email inválido' }),
+    password: z.string().min(8, { message: 'La contraseña debe tener al menos 8 caracteres' }),
+    nombre: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres' }),
+  })
+  const validacion = esquemaRegistro.safeParse(req.body)
+  if (!validacion.success) {
+    const primer = validacion.error.issues[0]
+    return res.status(400).json({ error: primer.message })
+  }
+
   const { email, password, rol, nombre, apellido, especialidad, rubro, colegioId } = req.body
 
-  if (!email || !password || !rol || !nombre) {
+  if (!rol) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' })
   }
 
@@ -93,11 +105,17 @@ router.post('/registro', async (req, res) => {
 
 // POST /api/auth/login
 router.post('/login', limitadorLogin, async (req, res) => {
-  const { email, password } = req.body
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email y password son requeridos' })
+  const esquemaLogin = z.object({
+    email: z.string().email({ message: 'Email inválido' }),
+    password: z.string().min(1, { message: 'La contraseña es requerida' }),
+  })
+  const validacion = esquemaLogin.safeParse(req.body)
+  if (!validacion.success) {
+    const primer = validacion.error.issues[0]
+    return res.status(400).json({ error: primer.message })
   }
+
+  const { email, password } = req.body
 
   const usuario = await prisma.usuario.findUnique({ where: { email } })
 

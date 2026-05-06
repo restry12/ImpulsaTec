@@ -31,6 +31,52 @@ router.get('/me', verificarToken, async (req, res) => {
   }
 })
 
+// GET /api/postulaciones/oferta/:ofertaId — Postulantes de una oferta propia (solo EMPRESA)
+router.get('/oferta/:ofertaId', verificarToken, async (req, res) => {
+  if (req.usuario.rol !== 'EMPRESA') {
+    return res.status(403).json({ error: 'Solo las empresas pueden ver postulantes de sus ofertas' })
+  }
+
+  const ofertaId = parseInt(req.params.ofertaId)
+
+  try {
+    // Verificar que la oferta pertenece a esta empresa
+    const empresa = await prisma.empresa.findUnique({ where: { usuarioId: req.usuario.id } })
+    if (!empresa) return res.status(404).json({ error: 'Perfil de empresa no encontrado' })
+
+    const oferta = await prisma.oferta.findUnique({ where: { id: ofertaId } })
+    if (!oferta || oferta.empresaId !== empresa.id) {
+      return res.status(403).json({ error: 'No tienes permiso para ver esta oferta' })
+    }
+
+    const postulaciones = await prisma.postulacion.findMany({
+      where: { ofertaId },
+      include: {
+        estudiante: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            especialidad: true,
+            descripcion: true,
+            fotoUrl: true,
+            disponible: true,
+            habilidades: { select: { id: true, nombre: true, validada: true } },
+            certificaciones: { select: { id: true, nombre: true, institucion: true, validada: true } },
+            colegio: { select: { nombre: true } },
+          },
+        },
+      },
+      orderBy: { creadoEn: 'desc' },
+    })
+
+    res.json(postulaciones)
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: 'Error al obtener postulantes' })
+  }
+})
+
 // GET /api/postulaciones — Todas las postulaciones (solo ADMINISTRADOR)
 router.get('/', verificarToken, async (req, res) => {
   if (req.usuario.rol !== 'ADMINISTRADOR') {
@@ -110,6 +156,37 @@ router.post('/', verificarToken, async (req, res) => {
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: 'Error al crear postulación' })
+  }
+})
+
+// DELETE /api/postulaciones/:id — Estudiante retira una postulación propia (solo si está PENDIENTE)
+router.delete('/:id', verificarToken, async (req, res) => {
+  if (req.usuario.rol !== 'ESTUDIANTE') {
+    return res.status(403).json({ error: 'Solo los estudiantes pueden retirar postulaciones' })
+  }
+
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' })
+
+  try {
+    const estudiante = await prisma.estudiante.findUnique({ where: { usuarioId: req.usuario.id } })
+    if (!estudiante) return res.status(404).json({ error: 'Perfil no encontrado' })
+
+    const postulacion = await prisma.postulacion.findUnique({ where: { id } })
+    if (!postulacion) return res.status(404).json({ error: 'Postulación no encontrada' })
+    if (postulacion.estudianteId !== estudiante.id) {
+      return res.status(403).json({ error: 'No tienes permiso para retirar esta postulación' })
+    }
+    if (postulacion.estado !== 'PENDIENTE') {
+      return res.status(400).json({ error: 'Solo se pueden retirar postulaciones pendientes' })
+    }
+
+    await prisma.postulacion.delete({ where: { id } })
+    res.json({ ok: true })
+  } catch (error) {
+    if (error.code === 'P2025') return res.status(404).json({ error: 'Postulación no encontrada' })
+    console.error(error)
+    res.status(500).json({ error: 'Error al retirar postulación' })
   }
 })
 

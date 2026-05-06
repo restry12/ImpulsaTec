@@ -80,6 +80,7 @@ model Estudiante {
   contactos       Contacto[]
   posts           Post[]
   comentarios      Comentario[]
+  likes            Like[]
   conversaciones1     Conversacion[]  @relation("conv_est1")
   conversaciones2     Conversacion[]  @relation("conv_est2")
   mensajesDirectosEmitidos MensajeDirecto[] @relation("dm_emisor_estudiante")
@@ -123,6 +124,7 @@ model Empresa {
   contactos   Contacto[]
   posts       Post[]
   comentarios      Comentario[]
+  likes            Like[]
   mensajes    Mensaje[]
   conversaciones      Conversacion[]
   mensajesDirectosEmitidos MensajeDirecto[] @relation("dm_emisor_empresa")
@@ -191,6 +193,24 @@ model Post {
   empresa          Empresa?       @relation(fields: [empresaId], references: [id])
   administrador    Administrador? @relation(fields: [administradorId], references: [id])
   comentarios      Comentario[]
+  likes            Like[]
+}
+
+// ─── LIKES DE POSTS ──────────────────────────────────────────
+
+model Like {
+  id           Int        @id @default(autoincrement())
+  postId       Int
+  estudianteId Int?
+  empresaId    Int?
+  creadoEn     DateTime   @default(now())
+
+  post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  estudiante   Estudiante? @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  empresa      Empresa?   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, estudianteId])
+  @@unique([postId, empresaId])
 }
 
 // ─── CONTACTO DIRECTO (empresa contacta estudiante) ──────────

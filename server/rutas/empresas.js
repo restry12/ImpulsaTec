@@ -17,11 +17,14 @@ router.get('/', async (req, res) => {
   try {
     const empresas = await prisma.empresa.findMany({
       where: filtros,
-      include: {
-        ofertas: {
-          where: { activa: true },
-          select: { id: true, titulo: true, especialidad: true, creadoEn: true },
-        },
+      select: {
+        id: true,
+        nombre: true,
+        rubro: true,
+        descripcion: true,
+        logoUrl: true,
+        creadoEn: true,
+        _count: { select: { ofertas: { where: { activa: true } } } },
       },
       orderBy: { creadoEn: 'desc' },
     })

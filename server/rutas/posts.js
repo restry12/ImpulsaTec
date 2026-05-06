@@ -22,18 +22,50 @@ const incluirAdministrador = {
 
 // GET /api/posts — Feed normal (ESTUDIANTE + EMPRESA), últimos 50
 router.get('/', async (req, res) => {
+  // JWT opcional: si viene, devolvemos miLike por post
+  let autorIdEstudiante = null
+  let autorIdEmpresa = null
+  try {
+    const jwt = require('jsonwebtoken')
+    const authHeader = req.headers['authorization']
+    if (authHeader) {
+      const token = authHeader.split(' ')[1]
+      const payload = jwt.verify(token, process.env.JWT_SECRET)
+      if (payload.rol === 'ESTUDIANTE') {
+        const estudiante = await prisma.estudiante.findUnique({ where: { usuarioId: payload.id } })
+        if (estudiante) autorIdEstudiante = estudiante.id
+      } else if (payload.rol === 'EMPRESA') {
+        const empresa = await prisma.empresa.findUnique({ where: { usuarioId: payload.id } })
+        if (empresa) autorIdEmpresa = empresa.id
+      }
+    }
+  } catch {}
+
   try {
     const posts = await prisma.post.findMany({
       where: { autorTipo: { in: ['ESTUDIANTE', 'EMPRESA'] } },
       include: {
         estudiante: incluirEstudiante,
         empresa: incluirEmpresa,
-        _count: { select: { comentarios: true } },
+        _count: { select: { comentarios: true, likes: true } },
       },
       orderBy: { creadoEn: 'desc' },
       take: 50,
     })
-    res.json(posts)
+
+    // Si hay usuario autenticado, marca qué posts le dieron like
+    if (autorIdEstudiante || autorIdEmpresa) {
+      const likesDelUsuario = await prisma.like.findMany({
+        where: {
+          postId: { in: posts.map(p => p.id) },
+          ...(autorIdEstudiante ? { estudianteId: autorIdEstudiante } : { empresaId: autorIdEmpresa }),
+        },
+        select: { postId: true },
+      })
+      const postsConMiLike = new Set(likesDelUsuario.map(l => l.postId))
+      return res.json(posts.map(p => ({ ...p, miLike: postsConMiLike.has(p.id) })))
+    }
+    return res.json(posts.map(p => ({ ...p, miLike: false })))
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: 'Error al obtener posts' })

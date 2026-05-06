@@ -1,4 +1,5 @@
 const express = require('express')
+const { z } = require('zod')
 const prisma = require('../prismaClient')
 const verificarToken = require('../middleware/verificarToken')
 
@@ -66,10 +67,18 @@ router.post('/', verificarToken, async (req, res) => {
     return res.status(403).json({ error: 'Solo las empresas pueden crear ofertas' })
   }
 
-  const { titulo, descripcion, especialidad } = req.body
-  if (!titulo?.trim() || !descripcion?.trim() || !especialidad?.trim()) {
-    return res.status(400).json({ error: 'titulo, descripcion y especialidad son requeridos' })
+  const esquemaOferta = z.object({
+    titulo: z.string().min(5, { message: 'El título debe tener al menos 5 caracteres' }),
+    descripcion: z.string().min(10, { message: 'La descripción debe tener al menos 10 caracteres' }),
+    especialidad: z.string().min(1, { message: 'La especialidad es requerida' }),
+  })
+  const validacion = esquemaOferta.safeParse(req.body)
+  if (!validacion.success) {
+    const primer = validacion.error.issues[0]
+    return res.status(400).json({ error: primer.message })
   }
+
+  const { titulo, descripcion, especialidad } = req.body
 
   try {
     const empresa = await prisma.empresa.findUnique({ where: { usuarioId: req.usuario.id } })
