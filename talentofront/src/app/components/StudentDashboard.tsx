@@ -248,7 +248,7 @@ export function StudentDashboard() {
   }, [vistaActiva])
 
   const ofertasDisponibles = empresas.flatMap(emp =>
-    emp.ofertas.map(oferta => ({ ...oferta, empresa: emp }))
+    (emp.ofertas ?? []).map(oferta => ({ ...oferta, empresa: emp }))
   )
 
   // Ofertas filtradas localmente en la vista de búsqueda
