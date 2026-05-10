@@ -79,7 +79,7 @@ type EmpresaAdmin = {
   descripcion: string | null
   logoUrl: string | null
   creadoEn: string
-  ofertas: { id: number; titulo: string; especialidad: string; creadoEn: string }[]
+  _count: { ofertas: number }
 }
 
 type HiloEmpresa = {
@@ -901,11 +901,11 @@ export function SchoolAdminPanel() {
                             </TableCell>
                             <TableCell>
                               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                                emp.ofertas.length > 0
+                                emp._count.ofertas > 0
                                   ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
                                   : "bg-[#EDE7D8] text-gray-400 border border-gray-200"
                               }`}>
-                                {emp.ofertas.length} {emp.ofertas.length === 1 ? "oferta" : "ofertas"}
+                                {emp._count.ofertas} {emp._count.ofertas === 1 ? "oferta" : "ofertas"}
                               </span>
                             </TableCell>
                             <TableCell className="text-right pr-5">
